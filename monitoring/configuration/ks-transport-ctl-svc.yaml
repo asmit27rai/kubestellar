@@ -9,5 +9,8 @@ spec:
   - name: metrics
     port: 8090
     targetPort: metrics
+  - name: latency
+    port: 2222
+    targetPort: latency
   selector:
     name: transport-controller

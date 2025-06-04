@@ -25,6 +25,8 @@ import (
 	"os"
 	"strings"
 	"time"
+	"net/http"
+	"context"
 
 	"github.com/spf13/pflag"
 
@@ -48,6 +50,10 @@ import (
 	ksmetrics "github.com/kubestellar/kubestellar/pkg/metrics"
 	"github.com/kubestellar/kubestellar/pkg/status"
 	"github.com/kubestellar/kubestellar/pkg/util"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
@@ -57,6 +63,7 @@ var (
 const (
 	// number of workers to run the reconciliation loop
 	workers = 4
+	otelMetricsPort = ":2222"
 )
 
 func init() {
@@ -77,6 +84,16 @@ func main() {
 	var wdsName string
 	var allowedGroupsString string
 	var controllers []string
+	var metricsPort string
+	var monitoredNamespace string
+	var monitoredDeployment string
+	var bindingName string
+	var wecContext string
+	pflag.StringVar(&wecContext, "wec-context", "", "Context name for WEC cluster in kubeconfig")
+	pflag.StringVar(&bindingName, "binding-name", "", "Name of the binding policy for the monitored deployment")
+	pflag.StringVar(&monitoredNamespace, "monitored-namespace", "default", "Namespace of the deployment to monitor")
+	pflag.StringVar(&monitoredDeployment, "monitored-deployment", "", "Name of the deployment to monitor")
+	pflag.StringVar(&metricsPort, "metrics-port", otelMetricsPort, "Port for exposing OpenTelemetry metrics")
 	pflag.StringVar(&itsName, "its-name", "", "name of the Inventory and Transport Space to connect to (empty string means to use the only one)")
 	pflag.StringVar(&wdsName, "wds-name", "", "name of the workload description space to connect to")
 	pflag.StringVar(&allowedGroupsString, "api-groups", "", "list of allowed api groups, comma separated. Empty string means all API groups are allowed")
@@ -144,6 +161,56 @@ func main() {
 	setupLog.Info("Got config for ITS", "name", itsName)
 	itsRestConfig = itsClientLimits.LimitConfig(itsRestConfig)
 
+	// TODO: set wecRestConfig, monitoredNamespace, monitoredDeployment as needed
+
+	// Create latency collector
+	if monitoredDeployment != "" && bindingName != "" {
+		var wecRestConfig *rest.Config
+		var err error
+		
+		if wecContext != "" {
+			// Use default kubeconfig loading rules
+			loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+			// Explicitly set kubeconfig path if provided via flag
+			if flag := pflag.Lookup("kubeconfig"); flag != nil && flag.Value.String() != "" {
+				loadingRules.ExplicitPath = flag.Value.String()
+			}
+			
+			configOverrides := &clientcmd.ConfigOverrides{CurrentContext: wecContext}
+			
+			wecRestConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+				loadingRules,
+				configOverrides,
+			).ClientConfig()
+			if err != nil {
+				setupLog.Error(err, "failed to create WEC config")
+				// Fall back to ITS config
+				wecRestConfig = itsRestConfig
+			}
+		} else {
+			setupLog.Info("Using ITS config for WEC as fallback")
+			wecRestConfig = itsRestConfig
+		}
+		
+		latencyCollector := createLatencyCollector(
+			wdsRestConfig, itsRestConfig, wecRestConfig,
+			monitoredNamespace, monitoredDeployment, bindingName, monitoredNamespace,
+		)
+		legacyregistry.MustRegister(latencyCollector)
+	}
+
+	// Start metrics server
+	go func() {
+		setupLog.Info("Starting metrics server", "port", metricsPort)
+		metricsServer := &http.Server{
+			Addr:    metricsPort,
+			Handler: legacyregistry.Handler(),
+		}
+		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			setupLog.Error(err, "Metrics server failed")
+		}
+	}()
+
 	workloadEventRelay := &workloadEventRelay{}
 
 	// create the binding controller
@@ -162,6 +229,10 @@ func main() {
 		setupLog.Error(err, "error appending KubeStellar resources to discovered lists")
 		os.Exit(1)
 	}
+	
+	// Add context cancellation for graceful shutdown
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	startBindingController := len(ctlrsToStart) == 0 || ctlrsToStart.Has(strings.ToLower(binding.ControllerName))
 	startStatusCtlr := len(ctlrsToStart) == 0 || ctlrsToStart.Has(strings.ToLower(status.ControllerName))
@@ -228,4 +299,27 @@ func (wer *workloadEventRelay) HandleWorkloadObjectEvent(gvr schema.GroupVersion
 	if wer.statusController != nil {
 		wer.statusController.HandleWorkloadObjectEvent(gvr, oldObj, obj, eventType, wasDeletedFinalStateUnknown)
 	}
+}
+
+func createLatencyCollector(
+    wdsCfg, itsCfg, wecCfg *rest.Config,
+    namespace, deployment, bindingName, itsNamespace string,
+) *ksmetrics.LatencyCollector {
+    wdsClient := kubernetes.NewForConfigOrDie(wdsCfg)
+    wecClient := kubernetes.NewForConfigOrDie(wecCfg)
+    wdsDynamic := dynamic.NewForConfigOrDie(wdsCfg)
+    itsDynamic := dynamic.NewForConfigOrDie(itsCfg)
+    wecDynamic := dynamic.NewForConfigOrDie(wecCfg)
+    
+    return ksmetrics.NewLatencyCollector(
+        wdsClient,
+        wecClient,
+        wdsDynamic,
+        itsDynamic,
+        wecDynamic,
+        namespace,
+        deployment,
+        bindingName,
+        itsNamespace,
+    )
 }

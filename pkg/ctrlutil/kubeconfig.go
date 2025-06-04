@@ -47,12 +47,33 @@ const (
 	ErrMultipleControlPlanes = "more than one control plane of type %s was found and no name was specified"
 )
 
+// Updated functions in pkg/ctrlutil/kubeconfig.go
 func GetWDSKubeconfig(logger logr.Logger, wdsName string) (*rest.Config, string, error) {
-	return getRestConfig(logger, wdsName, ControlPlaneTypeWDS)
+    // First try direct context access
+    if directConfig, err := getDirectConfig(wdsName); err == nil {
+        logger.Info("Using direct kubeconfig access", "context", wdsName)
+        return directConfig, wdsName, nil
+    }
+    // Fallback to Kubeflex method
+    return getRestConfig(logger, wdsName, ControlPlaneTypeWDS)
 }
 
 func GetITSKubeconfig(logger logr.Logger, itsName string) (*rest.Config, string, error) {
-	return getRestConfig(logger, itsName, ControlPlaneTypeITS)
+    // First try direct context access
+    if directConfig, err := getDirectConfig(itsName); err == nil {
+        logger.Info("Using direct kubeconfig access", "context", itsName)
+        return directConfig, itsName, nil
+    }
+    // Fallback to Kubeflex method
+    return getRestConfig(logger, itsName, ControlPlaneTypeITS)
+}
+
+// New helper function for direct context access
+func getDirectConfig(contextName string) (*rest.Config, error) {
+    loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+    configOverrides := &clientcmd.ConfigOverrides{CurrentContext: contextName}
+    clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+    return clientConfig.ClientConfig()
 }
 
 // get the rest config for a control plane based on labels and name

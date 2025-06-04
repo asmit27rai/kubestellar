@@ -10,6 +10,10 @@ spec:
     path: /metrics
     port: metrics
     scheme: http
+  - interval: 15s
+    path: /metrics
+    port: latency
+    scheme: http
   namespaceSelector:
     matchNames:
     - open-cluster-management-agent-addon

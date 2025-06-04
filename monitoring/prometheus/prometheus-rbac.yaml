@@ -20,10 +20,8 @@ rules:
   resources:
   - configmaps
   verbs: ["get"]
-- apiGroups:
-  - networking.k8s.io
-  resources:
-  - ingresses
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods", "servicemonitors"]
   verbs: ["get", "list", "watch"]
 - nonResourceURLs: ["/metrics"]
   verbs: ["get"]

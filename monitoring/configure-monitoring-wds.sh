@@ -86,7 +86,7 @@ kubectl -n $wds-system get deploy kubestellar-controller-manager -o yaml | yq '.
 kubectl -n $wds-system apply -f ${SCRIPT_DIR}/configuration/ks-transport-ctl-svc.yaml
 
 : 2. Adding declarations of the metrics and pprof ports, so that transport controller service definition can refer to it by name
-kubectl -n $wds-system get deploy transport-controller -o yaml | yq '(del(.status) |.spec.template.spec.containers.[0].ports[0].name |= "metrics")' | yq '.spec.template.spec.containers.[0].ports[0].protocol |= "TCP"' | yq '.spec.template.spec.containers.[0].ports[0].containerPort |= 8090' | yq '.spec.template.spec.containers.[0].ports[1].name |= "pprof"' | yq '.spec.template.spec.containers.[0].ports[1].protocol |= "TCP"' | yq '.spec.template.spec.containers.[0].ports[1].containerPort |= 8092' | kubectl --context $ctx apply --namespace=$wds-system -f -
+kubectl -n $wds-system get deploy transport-controller -o yaml | yq '(del(.status) |.spec.template.spec.containers.[0].ports[0].name |= "metrics")' | yq '.spec.template.spec.containers.[0].ports[0].protocol |= "TCP"' | yq '.spec.template.spec.containers.[0].ports[0].containerPort |= 8090' | yq '.spec.template.spec.containers.[0].ports[1].name |= "pprof"' | yq '.spec.template.spec.containers.[0].ports[1].protocol |= "TCP"' | yq '.spec.template.spec.containers.[0].ports[2].name |= "latency"' | yq '.spec.template.spec.containers.[0].ports[2].protocol |= "TCP"' | yq '.spec.template.spec.containers.[0].ports[2].containerPort |= 2222' | kubectl --context $ctx apply --namespace=$wds-system -f -
 
 : 3. Create the service monitor:
 sed s/%WDS%/$wds/g ${SCRIPT_DIR}/configuration/ks-transport-ctl-sm.yaml | kubectl -n $monitoring_ns apply -f -

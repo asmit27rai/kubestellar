@@ -29,3 +29,18 @@ rules:
   - get
   - patch
   - update
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["work.open-cluster-management.io"]
+  resources: ["manifestworks"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["work.open-cluster-management.io"]
+  resources: ["appliedmanifestworks"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["control.kubestellar.io"]
+  resources: ["workstatuses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["control.kubestellar.io"]
+  resources: ["bindingpolicies"]
+  verbs: ["get", "list", "watch"]

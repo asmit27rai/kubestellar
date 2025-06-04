@@ -18,7 +18,10 @@ prometheus:
         type: RuntimeDefault
     serviceMonitorNamespaceSelector:
       matchLabels:
-        kubernetes.io/metadata.name: ks-monitoring
+        kubernetes.io/metadata.name: kubestellar-system
+    serviceMonitorSelectorNilUsesHelmValues: false
+    remoteWrite:
+      - url: http://thanos-receive.ks-monitoring.svc.cluster.local:19291/api/v1/receive
 
     remoteWrite:
       - url: "%THANOS_HOST%/api/v1/receive"

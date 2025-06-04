@@ -1,0 +1,56 @@
+service:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - grafana.example.com
+  tls:
+    - secretName: grafana-tls
+      hosts:
+        - grafana.example.com
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+    - name: 'default'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: false
+      editable: true
+      options:
+        path: /var/lib/grafana/dashboards/default
+
+dashboardsConfigMaps:
+  default: kubestellar-dashboards
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://prometheus-operated.monitoring.svc.cluster.local:9090
+      isDefault: true
+      version: 1
+      editable: true
+
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+  datasources:
+    enabled: true
+    label: grafana_datasource
+    labelValue: "1"

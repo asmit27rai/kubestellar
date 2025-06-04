@@ -11,6 +11,13 @@ spec:
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 15s
+    path: /metrics
+    port: latency
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
   namespaceSelector:
     matchNames:
     - %WDS%-system

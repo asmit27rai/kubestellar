@@ -21,6 +21,7 @@ spec:
         kubectl.kubernetes.io/default-container: manager
       labels:
         control-plane: controller-manager
+        app: kubestellar-controller-manager
     spec:
       securityContext:
         runAsNonRoot: true
@@ -58,4 +59,7 @@ spec:
         - containerPort: 8082
           protocol: TCP
           name: debug-pprof
+        - containerPort: 2222
+          name: metrics
+          protocol: TCP
       terminationGracePeriodSeconds: 10

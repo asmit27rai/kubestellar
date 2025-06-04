@@ -10,3 +10,5 @@ spec:
   ports:
   - name: metrics
     port: 9280
+  - name: latency
+    port: 2222
