@@ -63,7 +63,7 @@ var (
 const (
 	// number of workers to run the reconciliation loop
 	workers = 4
-	otelMetricsPort = ":2222"
+	metricsPort = ":2222"
 )
 
 func init() {
@@ -84,7 +84,6 @@ func main() {
 	var wdsName string
 	var allowedGroupsString string
 	var controllers []string
-	var metricsPort string
 	var monitoredNamespace string
 	var monitoredDeployment string
 	var bindingName string
@@ -93,7 +92,6 @@ func main() {
 	pflag.StringVar(&bindingName, "binding-name", "", "Name of the binding policy for the monitored deployment")
 	pflag.StringVar(&monitoredNamespace, "monitored-namespace", "default", "Namespace of the deployment to monitor")
 	pflag.StringVar(&monitoredDeployment, "monitored-deployment", "", "Name of the deployment to monitor")
-	pflag.StringVar(&metricsPort, "metrics-port", otelMetricsPort, "Port for exposing OpenTelemetry metrics")
 	pflag.StringVar(&itsName, "its-name", "", "name of the Inventory and Transport Space to connect to (empty string means to use the only one)")
 	pflag.StringVar(&wdsName, "wds-name", "", "name of the workload description space to connect to")
 	pflag.StringVar(&allowedGroupsString, "api-groups", "", "list of allowed api groups, comma separated. Empty string means all API groups are allowed")
