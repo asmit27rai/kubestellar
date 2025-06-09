@@ -25,5 +25,6 @@ A minimal guide to build and run the Kubestellar latency collector, which expose
   --monitored-deployment=<your-deployment> \
   --monitored-namespace=<namespace> \
   --binding-name=<binding-policy-name> \
-  --wec-context=<wec-cluster-context>
+  --wec-context=<wec-cluster-context> \
+  --wds-context=<wds-cluster-context> \ --its-context=<its-cluster-context>
 ``

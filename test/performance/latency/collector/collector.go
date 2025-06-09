@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -39,14 +40,24 @@ func main() {
 		itsName              string
 		wdsName              string
 		allowedGroupsString  string
-		monitoredNamespace   string
-		monitoredDeployment  string
-		bindingName          string
-		wecContext           string
-		kubeconfig           string
+
+		monitoredNamespace  string
+		monitoredDeployment string
+		bindingName         string
+
+		// NEW: separate flags for each context
+		wdsContext string
+		itsContext string
+		wecContext string
+
+		kubeconfig string
 	)
 
+	// Define flags
+	pflag.StringVar(&wdsContext, "wds-context", "", "Context name for WDS (Workload Description Space) cluster in kubeconfig")
+	pflag.StringVar(&itsContext, "its-context", "", "Context name for ITS (Inventory & Transport Space) cluster in kubeconfig")
 	pflag.StringVar(&wecContext, "wec-context", "", "Context name for WEC cluster in kubeconfig")
+
 	pflag.StringVar(&bindingName, "binding-name", "", "Name of the binding policy for the monitored deployment")
 	pflag.StringVar(&monitoredNamespace, "monitored-namespace", "default", "Namespace of the deployment to monitor")
 	pflag.StringVar(&monitoredDeployment, "monitored-deployment", "", "Name of the deployment to monitor")
@@ -65,45 +76,63 @@ func main() {
 	ctrl.SetLogger(logger)
 	setupLog := logger.WithName("setup")
 
-	// Create rest configs using standard clientcmd
+	// ─── 1) Build a loader for the kubeconfig file ─────────────────────────────────────────
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loadingRules.ExplicitPath = kubeconfig
-	configOverrides := &clientcmd.ConfigOverrides{}
+	loadingRules.ExplicitPath = kubeconfig // if empty, uses defaults (~/.kube/config)
 
-	// Build base config
-	baseConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		loadingRules,
-		configOverrides,
+	// We will override CurrentContext separately for each of WDS, ITS, and WEC:
+	//   • wdsContext  → WDS cluster
+	//   • itsContext  → ITS cluster
+	//   • wecContext  → WEC cluster
+
+	// ─── 2) Build WDS REST config ──────────────────────────────────────────────────────────
+	wdsOverrides := &clientcmd.ConfigOverrides{CurrentContext: wdsContext}
+	wdsClientConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		loadingRules, wdsOverrides,
 	).ClientConfig()
 	if err != nil {
-		setupLog.Error(err, "failed to create base Kubernetes config")
+		setupLog.Error(err, "failed to create WDS REST config (check --wds-context)")
 		os.Exit(1)
 	}
+	wdsRestConfig := rest.CopyConfig(wdsClientConfig)
 
-	// For simplicity, we'll use the same config for ITS and WDS in this example
-	itsRestConfig := rest.CopyConfig(baseConfig)
-	wdsRestConfig := rest.CopyConfig(baseConfig)
+	// ─── 3) Build ITS REST config ──────────────────────────────────────────────────────────
+	itsOverrides := &clientcmd.ConfigOverrides{CurrentContext: itsContext}
+	itsClientConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		loadingRules, itsOverrides,
+	).ClientConfig()
+	if err != nil {
+		setupLog.Error(err, "failed to create ITS REST config (check --its-context)")
+		os.Exit(1)
+	}
+	itsRestConfig := rest.CopyConfig(itsClientConfig)
 
-	// Register latency collector if required flags are provided
+	// ─── 4) Build WEC REST config ──────────────────────────────────────────────────────────
+	wecRestConfig := buildWECConfig(wecContext, loadingRules, &clientcmd.ConfigOverrides{}, setupLog)
+
+	// ─── 5) Register the LatencyCollector if we have all required flags ────────────────────
 	if monitoredDeployment != "" && bindingName != "" {
-		wecRestConfig := buildWECConfig(wecContext, loadingRules, configOverrides, setupLog)
 		latencyCollector := createLatencyCollector(
-			wdsRestConfig, itsRestConfig, wecRestConfig,
-			monitoredNamespace, monitoredDeployment, bindingName,
+			wdsRestConfig,
+			itsRestConfig,
+			wecRestConfig,
+			monitoredNamespace,
+			monitoredDeployment,
+			bindingName,
 		)
 		legacyregistry.MustRegister(latencyCollector)
 	}
 
-	// Start metrics server
+	// ─── 6) Start the Prometheus metrics server ─────────────────────────────────────────────
 	setupLog.Info("Starting metrics server", "port", metricsPort)
-    http.Handle("/metrics", legacyregistry.Handler())
-    server := &http.Server{
-        Addr:              metricsPort,
-        ReadHeaderTimeout: 30 * time.Second,
-    }
-    if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-        logger.Error(err, "Metrics server failed")
-    }
+	http.Handle("/metrics", legacyregistry.Handler())
+	server := &http.Server{
+		Addr:              metricsPort,
+		ReadHeaderTimeout: 30 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Error(err, "Metrics server failed")
+	}
 }
 
 func buildWECConfig(wecContext string, loadingRules *clientcmd.ClientConfigLoadingRules, 
@@ -275,6 +304,7 @@ func (lc *LatencyCollector) getResourceTimestamps(ctx context.Context) (map[stri
 		return nil, fmt.Errorf("failed to get binding policy %s: %w", lc.bindingName, err)
 	}
 	timestamps["binding"] = binding.GetCreationTimestamp().Time
+	fmt.Printf("Binding creation time: %s\n", timestamps["binding"])
 
 	// Get WDS deployment
 	wdsDeploy, err := lc.wdsClient.AppsV1().Deployments(lc.namespace).Get(ctx, lc.monitoredDeploy, metav1.GetOptions{})
@@ -282,7 +312,10 @@ func (lc *LatencyCollector) getResourceTimestamps(ctx context.Context) (map[stri
 		return nil, fmt.Errorf("failed to get WDS deployment %s/%s: %w", lc.namespace, lc.monitoredDeploy, err)
 	}
 	timestamps["wdsDeploy"] = wdsDeploy.CreationTimestamp.Time
-	timestamps["wdsStatus"] = getStatusTime(wdsDeploy)
+	timestamps["wdsStatus"] = getDeploymentStatusTime(wdsDeploy)
+
+	fmt.Printf("WDS deployment creation time: %s\n", timestamps["wdsDeploy"])
+	fmt.Printf("WDS deployment status time: %s\n", timestamps["wdsStatus"])	
 
 	// Get ManifestWork
 	manifestWorkGVR := schema.GroupVersionResource{
@@ -297,7 +330,7 @@ func (lc *LatencyCollector) getResourceTimestamps(ctx context.Context) (map[stri
 	if err != nil || len(manifestWorkList.Items) == 0 {
 		return nil, fmt.Errorf("failed to get ManifestWork for binding %s: %w", lc.bindingName, err)
 	}
-	// timestamps["manifestWork"] = time.Now()
+	// timestamps["manifestWork"] = manifestWorkList.Items[0].GetCreationTimestamp().Time
 
 	// Get AppliedManifestWork
 	appliedManifestWorkGVR := schema.GroupVersionResource{
@@ -305,33 +338,54 @@ func (lc *LatencyCollector) getResourceTimestamps(ctx context.Context) (map[stri
 		Version:  "v1",
 		Resource: "appliedmanifestworks",
 	}
-	appliedManifestWorkList, err := lc.wecDynamic.Resource(appliedManifestWorkGVR).List(ctx, metav1.ListOptions{})
-	if err != nil || len(appliedManifestWorkList.Items) == 0 {
-		return nil, fmt.Errorf("failed to get AppliedManifestWork: %w", err)
-	}
+	// appliedManifestWorkList, err := lc.wecDynamic.Resource(appliedManifestWorkGVR).List(ctx, metav1.ListOptions{})
+	// if err != nil || len(appliedManifestWorkList.Items) == 0 {
+	// 	return nil, fmt.Errorf("failed to get AppliedManifestWork: %w", err)
+	// }
+	// var appliedManifestWork *unstructured.Unstructured
+	// var manifest *unstructured.Unstructured
+	// for _, item := range appliedManifestWorkList.Items {
+	// 	for _, manifestWork := range manifestWorkList.Items {
+	// 		if item.GetName() == manifestWork.GetName() {
+	// 			spec, _, _ := unstructured.NestedStringMap(item.Object, "spec")
+	// 			if spec["manifestWorkName"] == manifestWork.GetName() && spec["namespace"] == manifestWork.GetNamespace() {
+	// 				appliedManifestWork = &item
+	// 				manifest = &manifestWork
+	// 				break
+	// 			}
+	// 		}
+	// 	}
+	// }
+	// if manifest == nil {
+	// 	return nil, fmt.Errorf("no ManifestWork found for AppliedManifestWork %s", appliedManifestWorkList.Items[0].GetName())
+	// }
+	// if appliedManifestWork == nil {
+	// 	return nil, fmt.Errorf("no AppliedManifestWork found for ManifestWork %s in namespace %s", manifestWorkList.Items[0].GetName(), manifestWorkList.Items[0].GetNamespace())
+	// }
+	// timestamps["appliedManifestWork"] = appliedManifestWork.GetCreationTimestamp().Time
+
 	var appliedManifestWork *unstructured.Unstructured
-	var manifest *unstructured.Unstructured
-	for _, item := range appliedManifestWorkList.Items {
-		for _, manifestWork := range manifestWorkList.Items {
-			if item.GetName() == manifestWork.GetName() {
-				spec, _, _ := unstructured.NestedStringMap(item.Object, "spec")
-				if spec["manifestWorkName"] == manifestWork.GetName() && spec["namespace"] == manifestWork.GetNamespace() {
-					appliedManifestWork = &item
-					manifest = &manifestWork
-					break
-				}
-			}
+
+	for _, mw := range manifestWorkList.Items {
+		amw, err := lc.wecDynamic.
+			Resource(appliedManifestWorkGVR).
+			Namespace(mw.GetNamespace()).         // look in the same namespace
+			Get(ctx, mw.GetName(), metav1.GetOptions{})
+		if err == nil {
+			appliedManifestWork = amw
+			// record timestamp and break
+			timestamps["manifestWork"]       = mw.GetCreationTimestamp().Time
+			timestamps["appliedManifestWork"] = amw.GetCreationTimestamp().Time
+			break
 		}
 	}
-	if manifest == nil {
-		return nil, fmt.Errorf("no ManifestWork found for AppliedManifestWork %s", appliedManifestWorkList.Items[0].GetName())
-	}
+
 	if appliedManifestWork == nil {
-		return nil, fmt.Errorf("no AppliedManifestWork found for ManifestWork %s in namespace %s", manifestWorkList.Items[0].GetName(), manifestWorkList.Items[0].GetNamespace())
+		return nil, fmt.Errorf(
+			"no AppliedManifestWork found matching any ManifestWork for binding %q",
+			lc.bindingName,
+		)
 	}
-	timestamps["manifestWork"] = manifest.GetCreationTimestamp().Time
-	timestamps["appliedManifestWork"] = appliedManifestWork.GetCreationTimestamp().Time
-	// timestamps["appliedManifestWork"] = appliedManifestWorkList.Items[0].GetCreationTimestamp().Time
 
 	// Get WEC deployment
 	wecDeploy, err := lc.wecClient.AppsV1().Deployments(lc.namespace).Get(ctx, lc.monitoredDeploy, metav1.GetOptions{})
@@ -339,7 +393,9 @@ func (lc *LatencyCollector) getResourceTimestamps(ctx context.Context) (map[stri
 		return nil, fmt.Errorf("failed to get WEC deployment %s/%s: %w", lc.namespace, lc.monitoredDeploy, err)
 	}
 	timestamps["wecDeploy"] = wecDeploy.CreationTimestamp.Time
-	timestamps["wecStatus"] = getStatusTime(wecDeploy)
+	timestamps["wecStatus"] = getDeploymentStatusTime(wecDeploy)
+	fmt.Printf("WEC deployment creation time: %s\n", timestamps["wecDeploy"])
+	fmt.Printf("WEC deployment status time: %s\n", timestamps["wecStatus"])
 
 	// Get WorkStatus
 	workStatusGVR := schema.GroupVersionResource{
@@ -360,9 +416,7 @@ func (lc *LatencyCollector) getResourceTimestamps(ctx context.Context) (map[stri
 		}
 	}
 
-	timestamps["workStatus"] = time.Now() // Placeholder for WorkStatus
-
-	// fmt.Printf("Collected timestamps: %+v\n", timestamps)
+	fmt.Printf("Collected timestamps: %+v\n", timestamps)
 
 	return timestamps, nil
 }
@@ -410,6 +464,17 @@ func getStatusTime(obj metav1.Object) time.Time {
 		}
 	}
 	return latestTime
+}
+
+func getDeploymentStatusTime(dep *appsv1.Deployment) time.Time {
+    var latest time.Time
+    for _, cond := range dep.Status.Conditions {
+        // cond.LastUpdateTime is a metav1.Time; skip if zero
+        if !cond.LastUpdateTime.IsZero() && cond.LastUpdateTime.Time.After(latest) {
+            latest = cond.LastUpdateTime.Time
+        }
+    }
+    return latest
 }
 
 // Implement StableCollector interface methods
