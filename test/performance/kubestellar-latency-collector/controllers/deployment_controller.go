@@ -77,6 +77,7 @@ type LatencyCache struct {
 	wdsDeploymentCreated      time.Time
 	wdsDeploymentStatusTime   time.Time
 	manifestWorkCreated       time.Time
+	manifestWorkName          string
 	appliedManifestWorkCreated time.Time
 	wecDeploymentCreated      time.Time
 	wecDeploymentStatusTime   time.Time
@@ -252,78 +253,176 @@ func (r *LatencyCollectorReconciler) fetchBindingPolicy(ctx context.Context) err
 	return nil
 }
 
+// func (r *LatencyCollectorReconciler) fetchManifestWork(ctx context.Context) error {
+// 	manifestWorkGVR := schema.GroupVersionResource{
+// 		Group:    "work.open-cluster-management.io",
+// 		Version:  "v1",
+// 		Resource: "manifestworks",
+// 	}
+	
+// 	labelSelector := fmt.Sprintf("transport.kubestellar.io/originOwnerReferenceBindingKey=%s", r.BindingName)
+// 	manifestWorkList, err := r.ItsDynamic.Resource(manifestWorkGVR).List(ctx, metav1.ListOptions{
+// 		LabelSelector: labelSelector,
+// 	})
+
+// 	fmt.Printf("Found %d ManifestWorks\n", len(manifestWorkList.Items))
+// 	fmt.Printf("Name of all ManifestWorks:\n")
+// 	for _, mw := range manifestWorkList.Items {
+// 		name := mw.GetName()
+// 		fmt.Printf("- %s\n", name)
+// 	}
+	
+// 	if err != nil || len(manifestWorkList.Items) == 0 {
+// 		return fmt.Errorf("failed to get ManifestWork for binding %s: %w", r.BindingName, err)
+// 	}
+	
+// 	// Find ManifestWork that matches our deployment
+// 	for _, mw := range manifestWorkList.Items {
+// 		manifests, _, _ := unstructured.NestedSlice(mw.Object, "spec", "workload", "manifests")
+// 		for _, manifest := range manifests {
+// 			if manifestMap, ok := manifest.(map[string]interface{}); ok {
+// 				if kind, _, _ := unstructured.NestedString(manifestMap, "kind"); kind == "Deployment" {
+// 					if name, _, _ := unstructured.NestedString(manifestMap, "metadata", "name"); name == r.MonitoredDeployment {
+// 						r.cache.manifestWorkCreated = mw.GetCreationTimestamp().Time
+// 						log.FromContext(ctx).Info("📦  ManifestWork timestamp",
+// 							"manifestWorkCreated", r.cache.manifestWorkCreated,
+// 						)
+// 						return nil
+// 					}
+// 				}
+// 			}
+// 		}
+// 	}
+	
+// 	return fmt.Errorf("no matching ManifestWork found for deployment %s", r.MonitoredDeployment)
+// }
+
+// func (r *LatencyCollectorReconciler) fetchAppliedManifestWork(ctx context.Context) error {
+// 	appliedManifestWorkGVR := schema.GroupVersionResource{
+// 		Group:    "work.open-cluster-management.io",
+// 		Version:  "v1",
+// 		Resource: "appliedmanifestworks",
+// 	}
+	
+// 	// List all AppliedManifestWorks
+// 	appliedWorkList, err := r.WecDynamic.Resource(appliedManifestWorkGVR).List(ctx, metav1.ListOptions{})
+// 	if err != nil {
+// 		return fmt.Errorf("failed to list AppliedManifestWorks: %w", err)
+// 	}
+
+// 	fmt.Printf("Found %d AppliedManifestWorks\n", len(appliedWorkList.Items))
+// 	fmt.Printf("Name of all AppliedManifestWorks:\n")
+// 	for _, aw := range appliedWorkList.Items {
+// 		name := aw.GetName()
+// 		fmt.Printf("- %s\n", name)
+// 	}
+	
+// 	// Find AppliedManifestWork that matches our deployment
+// 	for _, aw := range appliedWorkList.Items {
+// 		namespace, _, _ := unstructured.NestedString(aw.Object, "namespace")
+// 		name, _, _ := unstructured.NestedString(aw.Object, "name")
+		
+// 		if namespace == r.MonitoredNamespace && name == r.MonitoredDeployment {
+// 			r.cache.appliedManifestWorkCreated = aw.GetCreationTimestamp().Time
+// 			log.FromContext(ctx).Info("📄  AppliedManifestWork timestamp",
+// 				"appliedManifestWorkCreated", r.cache.appliedManifestWorkCreated,
+// 			)
+// 			return nil
+// 		}
+// 	}
+	
+// 	return fmt.Errorf("no AppliedManifestWork found for deployment %s/%s", 
+// 		r.MonitoredNamespace, r.MonitoredDeployment)
+// }
 
 func (r *LatencyCollectorReconciler) fetchManifestWork(ctx context.Context) error {
-	manifestWorkGVR := schema.GroupVersionResource{
-		Group:    "work.open-cluster-management.io",
-		Version:  "v1",
-		Resource: "manifestworks",
-	}
-	
-	labelSelector := fmt.Sprintf("transport.kubestellar.io/originOwnerReferenceBindingKey=%s", r.BindingName)
-	manifestWorkList, err := r.ItsDynamic.Resource(manifestWorkGVR).List(ctx, metav1.ListOptions{
-		LabelSelector: labelSelector,
-	})
+    manifestWorkGVR := schema.GroupVersionResource{
+        Group:    "work.open-cluster-management.io",
+        Version:  "v1",
+        Resource: "manifestworks",
+    }
 
-	fmt.Printf("Found %d ManifestWorks\n", len(manifestWorkList.Items))
-	
-	if err != nil || len(manifestWorkList.Items) == 0 {
-		return fmt.Errorf("failed to get ManifestWork for binding %s: %w", r.BindingName, err)
-	}
-	
-	// Find ManifestWork that matches our deployment
-	for _, mw := range manifestWorkList.Items {
-		manifests, _, _ := unstructured.NestedSlice(mw.Object, "spec", "workload", "manifests")
-		for _, manifest := range manifests {
-			if manifestMap, ok := manifest.(map[string]interface{}); ok {
-				if kind, _, _ := unstructured.NestedString(manifestMap, "kind"); kind == "Deployment" {
-					if name, _, _ := unstructured.NestedString(manifestMap, "metadata", "name"); name == r.MonitoredDeployment {
-						r.cache.manifestWorkCreated = mw.GetCreationTimestamp().Time
-						log.FromContext(ctx).Info("📦  ManifestWork timestamp",
-							"manifestWorkCreated", r.cache.manifestWorkCreated,
-						)
-						return nil
-					}
-				}
-			}
-		}
-	}
-	
-	return fmt.Errorf("no matching ManifestWork found for deployment %s", r.MonitoredDeployment)
+    list, err := r.ItsDynamic.Resource(manifestWorkGVR).List(ctx, metav1.ListOptions{
+        LabelSelector: fmt.Sprintf("transport.kubestellar.io/originOwnerReferenceBindingKey=%s", r.BindingName),
+    })
+    if err != nil {
+        return fmt.Errorf("listing ManifestWorks for binding %q: %w", r.BindingName, err)
+    }
+    if len(list.Items) == 0 {
+        return fmt.Errorf("no ManifestWorks found for binding %q", r.BindingName)
+    }
+
+    // Dedupe
+    uniq := make(map[string]unstructured.Unstructured, len(list.Items))
+    for _, mw := range list.Items {
+        uniq[mw.GetName()] = mw
+    }
+
+    // Find the one that contains your Deployment
+    for name, mw := range uniq {
+        manifests, _, _ := unstructured.NestedSlice(mw.Object, "spec", "workload", "manifests")
+        for _, m := range manifests {
+            if mMap, ok := m.(map[string]interface{}); ok {
+                if kind, _, _ := unstructured.NestedString(mMap, "kind"); kind == "Deployment" {
+                    if metaName, _, _ := unstructured.NestedString(mMap, "metadata", "name"); metaName == r.MonitoredDeployment {
+                        // **Store the name** for later correlation
+                        r.cache.manifestWorkName = name
+                        r.cache.manifestWorkCreated = mw.GetCreationTimestamp().Time
+                        log.FromContext(ctx).Info("📦  ManifestWork selected",
+                            "name", name, "timestamp", r.cache.manifestWorkCreated,
+                        )
+                        return nil
+                    }
+                }
+            }
+        }
+    }
+
+    return fmt.Errorf("no matching ManifestWork found for deployment %q", r.MonitoredDeployment)
 }
 
-func (r *LatencyCollectorReconciler) fetchAppliedManifestWork(ctx context.Context) error {
-	appliedManifestWorkGVR := schema.GroupVersionResource{
-		Group:    "work.open-cluster-management.io",
-		Version:  "v1",
-		Resource: "appliedmanifestworks",
-	}
-	
-	// List all AppliedManifestWorks
-	appliedWorkList, err := r.WecDynamic.Resource(appliedManifestWorkGVR).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list AppliedManifestWorks: %w", err)
-	}
 
-	fmt.Printf("Found %d AppliedManifestWorks\n", len(appliedWorkList.Items))
-	fmt.Printf("AppliedManifestWorkList: %v\n", appliedWorkList)
-	
-	// Find AppliedManifestWork that matches our deployment
-	for _, aw := range appliedWorkList.Items {
-		namespace, _, _ := unstructured.NestedString(aw.Object, "namespace")
-		name, _, _ := unstructured.NestedString(aw.Object, "name")
-		
-		if namespace == r.MonitoredNamespace && name == r.MonitoredDeployment {
-			r.cache.appliedManifestWorkCreated = aw.GetCreationTimestamp().Time
-			log.FromContext(ctx).Info("📄  AppliedManifestWork timestamp",
-				"appliedManifestWorkCreated", r.cache.appliedManifestWorkCreated,
-			)
-			return nil
-		}
-	}
-	
-	return fmt.Errorf("no AppliedManifestWork found for deployment %s/%s", 
-		r.MonitoredNamespace, r.MonitoredDeployment)
+func (r *LatencyCollectorReconciler) fetchAppliedManifestWork(ctx context.Context) error {
+    appliedGVR := schema.GroupVersionResource{
+        Group:    "work.open-cluster-management.io",
+        Version:  "v1",
+        Resource: "appliedmanifestworks",
+    }
+
+    list, err := r.WecDynamic.Resource(appliedGVR).List(ctx, metav1.ListOptions{})
+    if err != nil {
+        return fmt.Errorf("listing AppliedManifestWorks: %w", err)
+    }
+    if len(list.Items) == 0 {
+        return fmt.Errorf("no AppliedManifestWorks found")
+    }
+
+    // Dedupe
+    uniq := make(map[string]unstructured.Unstructured, len(list.Items))
+    for _, aw := range list.Items {
+        uniq[aw.GetName()] = aw
+    }
+
+    // Now correlate purely by name suffix:
+    // fullName = "<prefix>-<manifestWorkName>"
+    for fullName, aw := range uniq {
+        parts := strings.SplitN(fullName, "-", 2)
+        if len(parts) != 2 {
+            // unexpected format – skip
+            continue
+        }
+        suffix := parts[1]
+        if suffix == r.cache.manifestWorkName {
+            r.cache.appliedManifestWorkCreated = aw.GetCreationTimestamp().Time
+            log.FromContext(ctx).Info("📄  AppliedManifestWork matched",
+                "appliedName", fullName,
+                "timestamp", r.cache.appliedManifestWorkCreated,
+            )
+            return nil
+        }
+    }
+
+    return fmt.Errorf("no AppliedManifestWork found for manifestWork %q", r.cache.manifestWorkName)
 }
 
 func (r *LatencyCollectorReconciler) fetchWorkStatus(ctx context.Context) error {
@@ -376,32 +475,29 @@ func (r *LatencyCollectorReconciler) fetchWECDeployment(ctx context.Context) err
 }
 
 func (r *LatencyCollectorReconciler) computeMetrics() {
-	// Helper function to set metric if timestamp exists
-	setMetric := func(gauge *prometheus.GaugeVec, start, end time.Time) {
-		if !start.IsZero() && !end.IsZero() {
-			gauge.WithLabelValues(
-				r.MonitoredNamespace,
-				r.MonitoredDeployment,
-			).Set(end.Sub(start).Seconds())
-		}
-	}
+    // Instead of skipping when zero, we explicitly set zero:
+    alwaysSet := func(g *prometheus.GaugeVec, start, end time.Time) {
+        diff := 0.0
+        if !start.IsZero() && !end.IsZero() {
+            diff = end.Sub(start).Seconds()
+        }
+        g.WithLabelValues(r.MonitoredNamespace, r.MonitoredDeployment).Set(diff)
+    }
 
-	// Downsync metrics
-	setMetric(r.downsyncBindingTime, r.cache.bindingCreated, r.cache.wdsDeploymentCreated)
-	setMetric(r.downsyncPackagingTime, r.cache.wdsDeploymentCreated, r.cache.manifestWorkCreated)
-	setMetric(r.downsyncDeliveryTime, r.cache.manifestWorkCreated, r.cache.appliedManifestWorkCreated)
-	setMetric(r.downsyncActivationTime, r.cache.appliedManifestWorkCreated, r.cache.wecDeploymentCreated)
-	setMetric(r.totalDownsyncTime, r.cache.wdsDeploymentCreated, r.cache.wecDeploymentCreated)
+    // Downsync
+    alwaysSet(r.downsyncBindingTime,    r.cache.bindingCreated,           r.cache.wdsDeploymentCreated)
+    alwaysSet(r.downsyncPackagingTime,  r.cache.wdsDeploymentCreated,    r.cache.manifestWorkCreated)
+    alwaysSet(r.downsyncDeliveryTime,   r.cache.manifestWorkCreated,     r.cache.appliedManifestWorkCreated)
+    alwaysSet(r.downsyncActivationTime, r.cache.appliedManifestWorkCreated, r.cache.wecDeploymentCreated)
+    alwaysSet(r.totalDownsyncTime,      r.cache.wdsDeploymentCreated,    r.cache.wecDeploymentCreated)
 
-	// Upsync metrics
-	if !r.cache.workStatusTime.IsZero() {
-		setMetric(r.upsyncReportTime, r.cache.wecDeploymentStatusTime, r.cache.workStatusTime)
-		setMetric(r.upsyncFinalizationTime, r.cache.workStatusTime, r.cache.wdsDeploymentStatusTime)
-		setMetric(r.totalUpsyncTime, r.cache.wecDeploymentStatusTime, r.cache.wdsDeploymentStatusTime)
-	}
+    // Upsync
+    alwaysSet(r.upsyncReportTime,      r.cache.wecDeploymentStatusTime, r.cache.workStatusTime)
+    alwaysSet(r.upsyncFinalizationTime, r.cache.workStatusTime,          r.cache.wdsDeploymentStatusTime)
+    alwaysSet(r.totalUpsyncTime,        r.cache.wecDeploymentStatusTime, r.cache.wdsDeploymentStatusTime)
 
-	// E2E latency
-	setMetric(r.e2eLatencyTime, r.cache.wdsDeploymentCreated, r.cache.wdsDeploymentStatusTime)
+    // E2E
+    alwaysSet(r.e2eLatencyTime, r.cache.wdsDeploymentCreated, r.cache.wdsDeploymentStatusTime)
 }
 
 func getDeploymentStatusTime(dep *appsv1.Deployment) time.Time {
