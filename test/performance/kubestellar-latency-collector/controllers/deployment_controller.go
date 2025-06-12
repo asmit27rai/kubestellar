@@ -475,29 +475,52 @@ func (r *LatencyCollectorReconciler) fetchWECDeployment(ctx context.Context) err
 }
 
 func (r *LatencyCollectorReconciler) computeMetrics() {
-    // Instead of skipping when zero, we explicitly set zero:
-    alwaysSet := func(g *prometheus.GaugeVec, start, end time.Time) {
-        diff := 0.0
-        if !start.IsZero() && !end.IsZero() {
-            diff = end.Sub(start).Seconds()
+    now := time.Now()
+    // Helper: if start==zero → 0; else if end==zero → now–start; else → end–start
+    compute := func(start, end time.Time) float64 {
+        if start.IsZero() {
+            return 0
         }
-        g.WithLabelValues(r.MonitoredNamespace, r.MonitoredDeployment).Set(diff)
+        if end.IsZero() {
+            return now.Sub(start).Seconds()
+        }
+        return end.Sub(start).Seconds()
     }
 
+    labels := []string{r.MonitoredNamespace, r.MonitoredDeployment}
+
     // Downsync
-    alwaysSet(r.downsyncBindingTime,    r.cache.bindingCreated,           r.cache.wdsDeploymentCreated)
-    alwaysSet(r.downsyncPackagingTime,  r.cache.wdsDeploymentCreated,    r.cache.manifestWorkCreated)
-    alwaysSet(r.downsyncDeliveryTime,   r.cache.manifestWorkCreated,     r.cache.appliedManifestWorkCreated)
-    alwaysSet(r.downsyncActivationTime, r.cache.appliedManifestWorkCreated, r.cache.wecDeploymentCreated)
-    alwaysSet(r.totalDownsyncTime,      r.cache.wdsDeploymentCreated,    r.cache.wecDeploymentCreated)
+    r.downsyncBindingTime.WithLabelValues(labels...).Set(
+        compute(r.cache.bindingCreated, r.cache.wdsDeploymentCreated),
+    )
+    r.downsyncPackagingTime.WithLabelValues(labels...).Set(
+        compute(r.cache.wdsDeploymentCreated, r.cache.manifestWorkCreated),
+    )
+    r.downsyncDeliveryTime.WithLabelValues(labels...).Set(
+        compute(r.cache.manifestWorkCreated, r.cache.appliedManifestWorkCreated),
+    )
+    r.downsyncActivationTime.WithLabelValues(labels...).Set(
+        compute(r.cache.appliedManifestWorkCreated, r.cache.wecDeploymentCreated),
+    )
+    r.totalDownsyncTime.WithLabelValues(labels...).Set(
+        compute(r.cache.bindingCreated, r.cache.wecDeploymentCreated),
+    )
 
     // Upsync
-    alwaysSet(r.upsyncReportTime,      r.cache.wecDeploymentStatusTime, r.cache.workStatusTime)
-    alwaysSet(r.upsyncFinalizationTime, r.cache.workStatusTime,          r.cache.wdsDeploymentStatusTime)
-    alwaysSet(r.totalUpsyncTime,        r.cache.wecDeploymentStatusTime, r.cache.wdsDeploymentStatusTime)
+    r.upsyncReportTime.WithLabelValues(labels...).Set(
+        compute(r.cache.wecDeploymentCreated, r.cache.workStatusTime),
+    )
+    r.upsyncFinalizationTime.WithLabelValues(labels...).Set(
+        compute(r.cache.workStatusTime, r.cache.wdsDeploymentStatusTime),
+    )
+    r.totalUpsyncTime.WithLabelValues(labels...).Set(
+        compute(r.cache.wecDeploymentCreated, r.cache.wdsDeploymentStatusTime),
+    )
 
     // E2E
-    alwaysSet(r.e2eLatencyTime, r.cache.wdsDeploymentCreated, r.cache.wdsDeploymentStatusTime)
+    r.e2eLatencyTime.WithLabelValues(labels...).Set(
+        compute(r.cache.bindingCreated, r.cache.wdsDeploymentStatusTime),
+    )
 }
 
 func getDeploymentStatusTime(dep *appsv1.Deployment) time.Time {
