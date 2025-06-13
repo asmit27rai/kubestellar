@@ -62,7 +62,6 @@ func main() {
 		wecContext          string
 		kubeconfigPath      string
 		monitoredNamespace  string
-		monitoredDeployment string
 		bindingName         string
 	)
 
@@ -72,7 +71,6 @@ func main() {
 	pflag.StringVar(&wecContext, "wec-context", "", "Context name for WEC cluster in kubeconfig")
 	pflag.StringVar(&kubeconfigPath, "kubeconfig", "", "Path to kubeconfig file")
 	pflag.StringVar(&monitoredNamespace, "monitored-namespace", "default", "Namespace of the deployment to monitor")
-	pflag.StringVar(&monitoredDeployment, "monitored-deployment", "", "Name of the deployment to monitor")
 	pflag.StringVar(&bindingName, "binding-name", "", "Name of the binding policy for the monitored deployment")
 	
 	// Existing flags
@@ -173,7 +171,6 @@ func main() {
 		ItsDynamic:          itsDynamic,
 		WecDynamic:          wecDynamic,
 		MonitoredNamespace:  monitoredNamespace,
-		MonitoredDeployment: monitoredDeployment,
 		BindingName:         bindingName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Deployment")
