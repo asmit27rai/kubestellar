@@ -27,7 +27,6 @@ go build -o bin/latency-collector cmd/main.go
   --wec-context=your-wec-context \
   --its-context=your-its-context \
   --monitored-namespace=namespace \
-  --monitored-deployment=your-deployment \
   --binding-name=your-binding \
   --leader-elect=false \
   --metrics-bind-address=:2222
