@@ -73,7 +73,7 @@ type LatencyCollectorReconciler struct {
     cacheMux sync.Mutex
 
     // Aggregated metrics (no per-deployment labels)
-    totalBindingTime       prometheus.Gauge
+    // totalBindingTime       prometheus.Gauge
     totalPackagingTime     prometheus.Gauge
     totalDeliveryTime      prometheus.Gauge
     totalActivationTime    prometheus.Gauge
@@ -97,10 +97,10 @@ func (r *LatencyCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *LatencyCollectorReconciler) registerMetrics() {
-    r.totalBindingTime = prometheus.NewGauge(prometheus.GaugeOpts{
-        Name: "kubestellar_total_downsync_binding_time_seconds",
-        Help: "Sum of binding→WDS deployment creation times across all Deployments",
-    })
+    // r.totalBindingTime = prometheus.NewGauge(prometheus.GaugeOpts{
+    //     Name: "kubestellar_total_downsync_binding_time_seconds",
+    //     Help: "Sum of binding→WDS deployment creation times across all Deployments",
+    // })
     r.totalPackagingTime = prometheus.NewGauge(prometheus.GaugeOpts{
         Name: "kubestellar_total_downsync_packaging_time_seconds",
         Help: "Sum of WDS deployment→ManifestWork creation times across all Deployments",
@@ -135,7 +135,7 @@ func (r *LatencyCollectorReconciler) registerMetrics() {
     })
 
     metrics.Registry.MustRegister(
-        r.totalBindingTime,
+        // r.totalBindingTime,
         r.totalPackagingTime,
         r.totalDeliveryTime,
         r.totalActivationTime,
@@ -148,17 +148,17 @@ func (r *LatencyCollectorReconciler) registerMetrics() {
 }
 
 // fetchBindingPolicy retrieves the single BindingPolicy by name
-func (r *LatencyCollectorReconciler) fetchBindingPolicy(ctx context.Context) error {
-    gvr := schema.GroupVersionResource{Group: "control.kubestellar.io", Version: "v1alpha1", Resource: "bindingpolicies"}
-    b, err := r.WdsDynamic.Resource(gvr).Get(ctx, r.BindingName, metav1.GetOptions{})
-    if err != nil {
-        return fmt.Errorf("failed to get binding policy %s: %w", r.BindingName, err)
-    }
-    r.bindingCreated = b.GetCreationTimestamp().Time
-    log.FromContext(ctx).Info("🔖 BindingPolicy timestamp recorded", 
-        "bindingCreated", r.bindingCreated)
-    return nil
-}
+// func (r *LatencyCollectorReconciler) fetchBindingPolicy(ctx context.Context) error {
+//     gvr := schema.GroupVersionResource{Group: "control.kubestellar.io", Version: "v1alpha1", Resource: "bindingpolicies"}
+//     b, err := r.WdsDynamic.Resource(gvr).Get(ctx, r.BindingName, metav1.GetOptions{})
+//     if err != nil {
+//         return fmt.Errorf("failed to get binding policy %s: %w", r.BindingName, err)
+//     }
+//     r.bindingCreated = b.GetCreationTimestamp().Time
+//     log.FromContext(ctx).Info("🔖 BindingPolicy timestamp recorded", 
+//         "bindingCreated", r.bindingCreated)
+//     return nil
+// }
 
 func (r *LatencyCollectorReconciler) lookupManifestWork(ctx context.Context, deployName string, entry *PerDeploymentCache) {
     logger := log.FromContext(ctx).WithValues("deployment", deployName, "function", "lookupManifestWork")
@@ -319,11 +319,11 @@ func (r *LatencyCollectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
     logger := log.FromContext(ctx).WithValues("deployment", req.Name, "function", "Reconcile")
 
     // 0) fetch binding once
-    if r.bindingCreated.IsZero() {
-        if err := r.fetchBindingPolicy(ctx); err != nil {
-            log.FromContext(ctx).Error(err, "fetching binding policy")
-        }
-    }
+    // if r.bindingCreated.IsZero() {
+    //     if err := r.fetchBindingPolicy(ctx); err != nil {
+    //         log.FromContext(ctx).Error(err, "fetching binding policy")
+    //     }
+    // }
 
     // fetch the Deployment
     var deploy appsv1.Deployment
@@ -373,20 +373,20 @@ func (r *LatencyCollectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 func (r *LatencyCollectorReconciler) updateAggregates() {
     now := time.Now()
-    var sb, sp, sd, sa, sdown, sur, sf, su, se float64
+    var sp, sd, sa, sdown, sur, sf, su, se float64
     for _, e := range r.cache {
-        sb += duration(r.bindingCreated, e.wdsDeploymentCreated, now)
+        // sb += duration(r.bindingCreated, e.wdsDeploymentCreated, now)
         sp += duration(e.wdsDeploymentCreated, e.manifestWorkCreated, now)
         sd += duration(e.manifestWorkCreated, e.appliedManifestWorkCreated, now)
         sa += duration(e.appliedManifestWorkCreated, e.wecDeploymentCreated, now)
-        sdown += duration(r.bindingCreated, e.wecDeploymentCreated, now)
+        sdown += duration(e.wdsDeploymentCreated, e.wecDeploymentCreated, now)
         sur += duration(e.wecDeploymentCreated, e.workStatusTime, now)
         sf += duration(e.workStatusTime, e.wdsDeploymentStatusTime, now)
         su += duration(e.wecDeploymentCreated, e.wdsDeploymentStatusTime, now)
-        se += duration(r.bindingCreated, e.wdsDeploymentStatusTime, now)
+        se += duration(e.wdsDeploymentCreated, e.wdsDeploymentStatusTime, now)
     }
 
-    r.totalBindingTime.Set(sb)
+    // r.totalBindingTime.Set(sb)
     r.totalPackagingTime.Set(sp)
     r.totalDeliveryTime.Set(sd)
     r.totalActivationTime.Set(sa)
