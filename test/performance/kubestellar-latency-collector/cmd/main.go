@@ -21,6 +21,7 @@ import (
 	"flag"
 	"os"
 	"time"
+	"strings"
 
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,7 +60,7 @@ func main() {
 		// Context flags
 		wdsContext          string
 		itsContext          string
-		wecContext          string
+		wecContexts          string
 		kubeconfigPath      string
 		monitoredNamespace  string
 		bindingName         string
@@ -68,7 +69,7 @@ func main() {
 	// Add WDS context flag
 	pflag.StringVar(&wdsContext, "wds-context", "", "Context name for WDS cluster in kubeconfig")
 	pflag.StringVar(&itsContext, "its-context", "", "Context name for ITS cluster in kubeconfig")
-	pflag.StringVar(&wecContext, "wec-context", "", "Context name for WEC cluster in kubeconfig")
+	pflag.StringVar(&wecContexts, "wec-contexts", "", "Comma-separated context names for WEC clusters in kubeconfig")
 	pflag.StringVar(&kubeconfigPath, "kubeconfig", "", "Path to kubeconfig file")
 	pflag.StringVar(&monitoredNamespace, "monitored-namespace", "default", "Namespace of the deployment to monitor")
 	pflag.StringVar(&bindingName, "binding-name", "", "Name of the binding policy for the monitored deployment")
@@ -126,10 +127,36 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Split WEC contexts
+	wecContextList := []string{}
+	if wecContexts != "" {
+		wecContextList = strings.Split(wecContexts, ",")
+	}
+
 	// Build clients for all clusters
 	wdsCfg := buildClusterConfig(kubeconfigPath, wdsContext)
 	itsCfg := buildClusterConfig(kubeconfigPath, itsContext)
-	wecCfg := buildClusterConfig(kubeconfigPath, wecContext)
+	// wecCfg := buildClusterConfig(kubeconfigPath, wecContext)
+
+	// Create WEC clients map
+	wecClients := make(map[string]kubernetes.Interface)
+	wecDynamics := make(map[string]dynamic.Interface)
+
+	for _, ctx := range wecContextList {
+		wecCfg := buildClusterConfig(kubeconfigPath, ctx)
+		clientSet, err := kubernetes.NewForConfig(wecCfg)
+		if err != nil {
+			setupLog.Error(err, "unable to create WEC client", "context", ctx)
+			os.Exit(1)
+		}
+		dynClient, err := dynamic.NewForConfig(wecCfg)
+		if err != nil {
+			setupLog.Error(err, "unable to create WEC dynamic client", "context", ctx)
+			os.Exit(1)
+		}
+		wecClients[ctx] = clientSet
+		wecDynamics[ctx] = dynClient
+	}
 	
 	wdsClient, err := kubernetes.NewForConfig(wdsCfg)
 	if err != nil {
@@ -143,17 +170,17 @@ func main() {
 		os.Exit(1)
 	}
 	
-	wecClient, err := kubernetes.NewForConfig(wecCfg)
-	if err != nil {
-		setupLog.Error(err, "unable to create WEC client")
-		os.Exit(1)
-	}
+	// wecClient, err := kubernetes.NewForConfig(wecCfg)
+	// if err != nil {
+	// 	setupLog.Error(err, "unable to create WEC client")
+	// 	os.Exit(1)
+	// }
 	
-	wecDynamic, err := dynamic.NewForConfig(wecCfg)
-	if err != nil {
-		setupLog.Error(err, "unable to create WEC dynamic client")
-		os.Exit(1)
-	}
+	// wecDynamic, err := dynamic.NewForConfig(wecCfg)
+	// if err != nil {
+	// 	setupLog.Error(err, "unable to create WEC dynamic client")
+	// 	os.Exit(1)
+	// }
 	
 	itsDynamic, err := dynamic.NewForConfig(itsCfg)
 	if err != nil {
@@ -166,10 +193,12 @@ func main() {
 		Client:              mgr.GetClient(),
 		Scheme:              mgr.GetScheme(),
 		WdsClient:           wdsClient,
-		WecClient:           wecClient,
+		// WecClient:           wecClient,
+		WecClients:          wecClients,
 		WdsDynamic:          wdsDynamic,
 		ItsDynamic:          itsDynamic,
-		WecDynamic:          wecDynamic,
+		// WecDynamic:          wecDynamic,
+		WecDynamics:         wecDynamics,
 		MonitoredNamespace:  monitoredNamespace,
 		BindingName:         bindingName,
 	}).SetupWithManager(mgr); err != nil {

@@ -24,7 +24,7 @@ go build -o bin/latency-collector cmd/main.go
 ./bin/latency-collector \
   --kubeconfig=~/.kube/config \
   --wds-context=your-wds-context \
-  --wec-context=your-wec-context \
+  --wec-contexts=your-wec-context1, your-wec-context2 \
   --its-context=your-its-context \
   --monitored-namespace=namespace \
   --binding-name=your-binding \
