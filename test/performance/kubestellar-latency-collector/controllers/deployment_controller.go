@@ -72,16 +72,15 @@ type LatencyCollectorReconciler struct {
     cache    map[string]*PerDeploymentCache
     cacheMux sync.Mutex
 
-    // Aggregated metrics (no per-deployment labels)
-    // totalBindingTime       prometheus.Gauge
-    totalPackagingTime     prometheus.Gauge
-    totalDeliveryTime      prometheus.Gauge
-    totalActivationTime    prometheus.Gauge
-    totalDownsyncTime      prometheus.Gauge
-    totalUpsyncReportTime  prometheus.Gauge
-    totalUpsyncFinalTime   prometheus.Gauge
-    totalUpsyncTime        prometheus.Gauge
-    totalE2ELatencyTime    prometheus.Gauge
+    // Histogram metrics for each stage
+	totalPackagingHistogram   *prometheus.HistogramVec
+	totalDeliveryHistogram    *prometheus.HistogramVec
+	totalActivationHistogram  *prometheus.HistogramVec
+	totalDownsyncHistogram    *prometheus.HistogramVec
+	totalUpsyncReportHistogram *prometheus.HistogramVec
+	totalUpsyncFinalHistogram  *prometheus.HistogramVec
+	totalUpsyncHistogram       *prometheus.HistogramVec
+	totalE2EHistogram         *prometheus.HistogramVec
 }
 
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
@@ -97,54 +96,66 @@ func (r *LatencyCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *LatencyCollectorReconciler) registerMetrics() {
-    // r.totalBindingTime = prometheus.NewGauge(prometheus.GaugeOpts{
-    //     Name: "kubestellar_total_downsync_binding_time_seconds",
-    //     Help: "Sum of binding→WDS deployment creation times across all Deployments",
-    // })
-    r.totalPackagingTime = prometheus.NewGauge(prometheus.GaugeOpts{
-        Name: "kubestellar_total_downsync_packaging_time_seconds",
-        Help: "Sum of WDS deployment→ManifestWork creation times across all Deployments",
-    })
-    r.totalDeliveryTime = prometheus.NewGauge(prometheus.GaugeOpts{
-        Name: "kubestellar_total_downsync_delivery_time_seconds",
-        Help: "Sum of ManifestWork→AppliedManifestWork creation times across all Deployments",
-    })
-    r.totalActivationTime = prometheus.NewGauge(prometheus.GaugeOpts{
-        Name: "kubestellar_total_downsync_activation_time_seconds",
-        Help: "Sum of AppliedManifestWork→WEC deployment creation times across all Deployments",
-    })
-    r.totalDownsyncTime = prometheus.NewGauge(prometheus.GaugeOpts{
-        Name: "kubestellar_total_downsync_time_seconds",
-        Help: "Sum of binding→WEC deployment creation times across all Deployments",
-    })
-    r.totalUpsyncReportTime = prometheus.NewGauge(prometheus.GaugeOpts{
-        Name: "kubestellar_total_upsync_report_time_seconds",
-        Help: "Sum of WEC deployment→WorkStatus report times across all Deployments",
-    })
-    r.totalUpsyncFinalTime = prometheus.NewGauge(prometheus.GaugeOpts{
-        Name: "kubestellar_total_upsync_finalization_time_seconds",
-        Help: "Sum of WorkStatus→WDS Deployment status times across all Deployments",
-    })
-    r.totalUpsyncTime = prometheus.NewGauge(prometheus.GaugeOpts{
-        Name: "kubestellar_total_upsync_time_seconds",
-        Help: "Sum of WEC deployment→WDS Deployment status times across all Deployments",
-    })
-    r.totalE2ELatencyTime = prometheus.NewGauge(prometheus.GaugeOpts{
-        Name: "kubestellar_total_e2e_latency_seconds",
-        Help: "Sum of binding→WDS status times across all Deployments",
-    })
+	// Initialize HistogramVecs for each lifecycle stage
+	r.totalPackagingHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "kubestellar_downsync_packaging_duration_seconds",
+		Help:    "Histogram of WDS deployment → ManifestWork creation durations",
+		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
+	}, []string{"deployment"})
 
-    metrics.Registry.MustRegister(
-        // r.totalBindingTime,
-        r.totalPackagingTime,
-        r.totalDeliveryTime,
-        r.totalActivationTime,
-        r.totalDownsyncTime,
-        r.totalUpsyncReportTime,
-        r.totalUpsyncFinalTime,
-        r.totalUpsyncTime,
-        r.totalE2ELatencyTime,
-    )
+	r.totalDeliveryHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "kubestellar_downsync_delivery_duration_seconds",
+		Help:    "Histogram of ManifestWork → AppliedManifestWork creation durations",
+		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
+	}, []string{"deployment"})
+
+	r.totalActivationHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "kubestellar_downsync_activation_duration_seconds",
+		Help:    "Histogram of AppliedManifestWork → WEC deployment creation durations",
+		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
+	}, []string{"deployment"})
+
+	r.totalDownsyncHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "kubestellar_downsync_duration_seconds",
+		Help:    "Histogram of WDS deployment → WEC deployment creation durations",
+		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
+	}, []string{"deployment"})
+
+	r.totalUpsyncReportHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "kubestellar_upsync_report_duration_seconds",
+		Help:    "Histogram of WEC deployment → WorkStatus report durations",
+		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
+	}, []string{"deployment"})
+
+	r.totalUpsyncFinalHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "kubestellar_upsync_finalization_duration_seconds",
+		Help:    "Histogram of WorkStatus → WDS Deployment status durations",
+		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
+	}, []string{"deployment"})
+
+	r.totalUpsyncHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "kubestellar_upsync_duration_seconds",
+		Help:    "Histogram of WEC deployment → WDS Deployment status durations",
+		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
+	}, []string{"deployment"})
+
+	r.totalE2EHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "kubestellar_e2e_latency_duration_seconds",
+		Help:    "Histogram of total binding → WDS status durations",
+		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
+	}, []string{"deployment"})
+
+	// Register all histograms
+	metrics.Registry.MustRegister(
+		r.totalPackagingHistogram,
+		r.totalDeliveryHistogram,
+		r.totalActivationHistogram,
+		r.totalDownsyncHistogram,
+		r.totalUpsyncReportHistogram,
+		r.totalUpsyncFinalHistogram,
+		r.totalUpsyncHistogram,
+		r.totalE2EHistogram,
+	)
 }
 
 // fetchBindingPolicy retrieves the single BindingPolicy by name
@@ -312,90 +323,66 @@ func (r *LatencyCollectorReconciler) lookupWECDeployment(ctx context.Context, de
 }
 
 func (r *LatencyCollectorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-    if req.NamespacedName.Namespace != r.MonitoredNamespace {
-        return ctrl.Result{}, nil
-    }
+	if req.NamespacedName.Namespace != r.MonitoredNamespace {
+		return ctrl.Result{}, nil
+	}
 
-    logger := log.FromContext(ctx).WithValues("deployment", req.Name, "function", "Reconcile")
+	logger := log.FromContext(ctx).WithValues("deployment", req.Name, "function", "Reconcile")
+    logger.Info("🔄 Reconcile called for Deployment", "namespace", req.NamespacedName.Namespace, "name", req.NamespacedName.Name)
 
-    // 0) fetch binding once
-    // if r.bindingCreated.IsZero() {
-    //     if err := r.fetchBindingPolicy(ctx); err != nil {
-    //         log.FromContext(ctx).Error(err, "fetching binding policy")
-    //     }
-    // }
+	// fetch deployment etc (unchanged)
+	var deploy appsv1.Deployment
+	if err := r.Get(ctx, req.NamespacedName, &deploy); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-    // fetch the Deployment
-    var deploy appsv1.Deployment
-    if err := r.Get(ctx, req.NamespacedName, &deploy); err != nil {
-        return ctrl.Result{}, client.IgnoreNotFound(err)
-    }
+	// populate cache entry
+	r.cacheMux.Lock()
+	entry, exists := r.cache[deploy.Name]
+	if !exists {
+		entry = &PerDeploymentCache{}
+		r.cache[deploy.Name] = entry
+	}
+	r.cacheMux.Unlock()
 
-    r.cacheMux.Lock()
-    entry, exists := r.cache[deploy.Name]
-    if !exists {
-        entry = &PerDeploymentCache{}
-        r.cache[deploy.Name] = entry
-    }
-    r.cacheMux.Unlock()
+	// record WDS timestamps (unchanged)
+	if entry.wdsDeploymentCreated.IsZero() {
+		entry.wdsDeploymentCreated = deploy.CreationTimestamp.Time
+	}
+	if st := getDeploymentStatusTime(&deploy); !st.IsZero() {
+		if entry.wdsDeploymentStatusTime.IsZero() || st.After(entry.wdsDeploymentStatusTime) {
+			entry.wdsDeploymentStatusTime = st
+		}
+	}
 
-    // 1) WDS Deployment timestamps
-    if entry.wdsDeploymentCreated.IsZero() {
-        entry.wdsDeploymentCreated = deploy.CreationTimestamp.Time
-        logger.Info("🏢 WDS Deployment creation timestamp recorded",
-            "timestamp", deploy.CreationTimestamp.Time)
-    }
-    if st := getDeploymentStatusTime(&deploy); !st.IsZero() {
-        if entry.wdsDeploymentStatusTime.IsZero() || st.After(entry.wdsDeploymentStatusTime) {
-            entry.wdsDeploymentStatusTime = st
-            logger.Info("📊 WDS Deployment status timestamp recorded", 
-                "timestamp", st)
-        }
-    }
+	// other lookups (unchanged)
+	r.lookupManifestWork(ctx, deploy.Name, entry)
+	r.lookupAppliedManifestWork(ctx, deploy.Name, entry)
+	r.lookupWorkStatus(ctx, deploy.Name, entry)
+	r.lookupWECDeployment(ctx, deploy.Name, entry)
 
-    // 2) ManifestWork
-    r.lookupManifestWork(ctx, deploy.Name, entry)
+	// Observe each stage's duration into histograms
+	now := time.Now()
+	d := duration(entry.wdsDeploymentCreated, entry.manifestWorkCreated, now)
+	r.totalPackagingHistogram.WithLabelValues(deploy.Name).Observe(d)
+	d = duration(entry.manifestWorkCreated, entry.appliedManifestWorkCreated, now)
+	r.totalDeliveryHistogram.WithLabelValues(deploy.Name).Observe(d)
+	d = duration(entry.appliedManifestWorkCreated, entry.wecDeploymentCreated, now)
+	r.totalActivationHistogram.WithLabelValues(deploy.Name).Observe(d)
+	d = duration(entry.wdsDeploymentCreated, entry.wecDeploymentCreated, now)
+	r.totalDownsyncHistogram.WithLabelValues(deploy.Name).Observe(d)
+	d = duration(entry.wecDeploymentCreated, entry.workStatusTime, now)
+	r.totalUpsyncReportHistogram.WithLabelValues(deploy.Name).Observe(d)
+	d = duration(entry.workStatusTime, entry.wdsDeploymentStatusTime, now)
+	r.totalUpsyncFinalHistogram.WithLabelValues(deploy.Name).Observe(d)
+	d = duration(entry.wecDeploymentCreated, entry.wdsDeploymentStatusTime, now)
+	r.totalUpsyncHistogram.WithLabelValues(deploy.Name).Observe(d)
+	d = duration(entry.wdsDeploymentCreated, entry.wdsDeploymentStatusTime, now)
+	r.totalE2EHistogram.WithLabelValues(deploy.Name).Observe(d)
 
-    // 3) AppliedManifestWork
-    r.lookupAppliedManifestWork(ctx, deploy.Name, entry)
-
-    // 4) WorkStatus
-    r.lookupWorkStatus(ctx, deploy.Name, entry)
-
-    // 5) WEC Deployment
-    r.lookupWECDeployment(ctx, deploy.Name, entry)
-
-    // Update aggregated totals (bindingCreated used for all entries)
-    r.updateAggregates()
-
-    return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+	return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
-func (r *LatencyCollectorReconciler) updateAggregates() {
-    now := time.Now()
-    var sp, sd, sa, sdown, sur, sf, su, se float64
-    for _, e := range r.cache {
-        // sb += duration(r.bindingCreated, e.wdsDeploymentCreated, now)
-        sp += duration(e.wdsDeploymentCreated, e.manifestWorkCreated, now)
-        sd += duration(e.manifestWorkCreated, e.appliedManifestWorkCreated, now)
-        sa += duration(e.appliedManifestWorkCreated, e.wecDeploymentCreated, now)
-        sdown += duration(e.wdsDeploymentCreated, e.wecDeploymentCreated, now)
-        sur += duration(e.wecDeploymentCreated, e.workStatusTime, now)
-        sf += duration(e.workStatusTime, e.wdsDeploymentStatusTime, now)
-        su += duration(e.wecDeploymentCreated, e.wdsDeploymentStatusTime, now)
-        se += duration(e.wdsDeploymentCreated, e.wdsDeploymentStatusTime, now)
-    }
-
-    // r.totalBindingTime.Set(sb)
-    r.totalPackagingTime.Set(sp)
-    r.totalDeliveryTime.Set(sd)
-    r.totalActivationTime.Set(sa)
-    r.totalDownsyncTime.Set(sdown)
-    r.totalUpsyncReportTime.Set(sur)
-    r.totalUpsyncFinalTime.Set(sf)
-    r.totalUpsyncTime.Set(su)
-    r.totalE2ELatencyTime.Set(se)
-}
 
 func duration(start, end, now time.Time) float64 {
     if start.IsZero() {
