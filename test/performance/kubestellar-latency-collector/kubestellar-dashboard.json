@@ -34,7 +34,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Shows latency percentiles per deployment operation in each stage",
+      "description": "End-to-end latency percentiles over time",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -92,6 +92,224 @@
         "x": 0,
         "y": 0
       },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "99th %ile - {{cluster}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "75th %ile - {{cluster}}",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "Median - {{cluster}}",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "25th %ile - {{cluster}}",
+          "refId": "D"
+        }
+      ],
+      "title": "End-to-End Latency (Binding → WDS Status) Percentiles",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Shows end-to-end latency for each workload to identify which one causes peaks",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by (le, workload) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "99th %ile - {{workload}}",
+          "refId": "A"
+        }
+      ],
+      "title": "End-to-End Latency by Workload",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Shows latency percentiles per workload operation in each stage",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
       "id": 4,
       "options": {
         "legend": {
@@ -115,7 +333,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "legendFormat": "99th %ile Packaging - {{cluster}}",
           "refId": "A"
         },
@@ -125,8 +343,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "95th %ile Packaging - {{cluster}}",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "75th %ile Packaging - {{cluster}}",
           "refId": "B"
         },
         {
@@ -135,8 +353,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "99th %ile Delivery - {{cluster}}",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "50th %ile Packaging - {{cluster}}",
           "refId": "C"
         },
         {
@@ -145,8 +363,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "95th %ile Delivery - {{cluster}}",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "25th %ile Packaging - {{cluster}}",
           "refId": "D"
         },
         {
@@ -155,8 +373,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "99th %ile Activation - {{cluster}}",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "99th %ile Delivery - {{cluster}}",
           "refId": "E"
         },
         {
@@ -165,9 +383,69 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "95th %ile Activation - {{cluster}}",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "75th %ile Delivery - {{cluster}}",
           "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "50th %ile Delivery - {{cluster}}",
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "25th %ile Delivery - {{cluster}}",
+          "refId": "H"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "99th %ile Activation - {{cluster}}",
+          "refId": "I"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "75th %ile Activation - {{cluster}}",
+          "refId": "J"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "50th %ile Activation - {{cluster}}",
+          "refId": "K"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "25th %ile Activation - {{cluster}}",
+          "refId": "L"
         }
       ],
       "title": "Latency Percentiles per Stage by Cluster",
@@ -234,7 +512,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 8
+        "y": 24
       },
       "id": 2,
       "options": {
@@ -259,7 +537,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
@@ -269,8 +547,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "95th %ile - {{cluster}}",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
         {
@@ -279,8 +557,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.90, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "90th %ile - {{cluster}}",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "Median - {{cluster}}",
           "refId": "C"
         },
         {
@@ -289,8 +567,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "Median - {{cluster}}",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "25th %ile - {{cluster}}",
           "refId": "D"
         }
       ],
@@ -358,7 +636,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 8
+        "y": 24
       },
       "id": 3,
       "options": {
@@ -383,7 +661,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
@@ -393,8 +671,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "95th %ile - {{cluster}}",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
         {
@@ -403,8 +681,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.90, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "90th %ile - {{cluster}}",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "Median - {{cluster}}",
           "refId": "C"
         },
         {
@@ -413,8 +691,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "Median - {{cluster}}",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "25th %ile - {{cluster}}",
           "refId": "D"
         }
       ],
@@ -482,7 +760,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 8
+        "y": 24
       },
       "id": 5,
       "options": {
@@ -507,7 +785,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
@@ -517,8 +795,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "95th %ile - {{cluster}}",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
         {
@@ -527,8 +805,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.90, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "90th %ile - {{cluster}}",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "Median - {{cluster}}",
           "refId": "C"
         },
         {
@@ -537,8 +815,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "Median - {{cluster}}",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "25th %ile - {{cluster}}",
           "refId": "D"
         }
       ],
@@ -606,7 +884,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 16
+        "y": 32
       },
       "id": 6,
       "options": {
@@ -631,7 +909,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
@@ -641,8 +919,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "95th %ile - {{cluster}}",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
         {
@@ -651,8 +929,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.90, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "90th %ile - {{cluster}}",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "Median - {{cluster}}",
           "refId": "C"
         },
         {
@@ -661,8 +939,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "Median - {{cluster}}",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "25th %ile - {{cluster}}",
           "refId": "D"
         }
       ],
@@ -730,7 +1008,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 16
+        "y": 32
       },
       "id": 7,
       "options": {
@@ -755,7 +1033,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
@@ -765,8 +1043,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "95th %ile - {{cluster}}",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
         {
@@ -775,8 +1053,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.90, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "90th %ile - {{cluster}}",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "Median - {{cluster}}",
           "refId": "C"
         },
         {
@@ -785,136 +1063,12 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "Median - {{cluster}}",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "25th %ile - {{cluster}}",
           "refId": "D"
         }
       ],
       "title": "Status Finalization Latency (WorkStatus → WDS Status) Percentiles",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "description": "End-to-end latency percentiles over time",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 16
-      },
-      "id": 8,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "lastNotNull"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "99th %ile - {{cluster}}",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "95th %ile - {{cluster}}",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.90, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "90th %ile - {{cluster}}",
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
-          "legendFormat": "Median - {{cluster}}",
-          "refId": "D"
-        }
-      ],
-      "title": "End-to-End Latency (Binding → WDS Status) Percentiles",
       "type": "timeseries"
     },
     {
@@ -927,7 +1081,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 40
       },
       "id": 9,
       "options": {
@@ -954,7 +1108,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m]))",
+          "expr": "sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m]))",
           "format": "time_series",
           "instant": false,
           "legendFormat": "{{cluster}} - {{le}}",
@@ -962,12 +1116,14 @@
         }
       ],
       "title": "Packaging Latency Distribution by Cluster",
-      "transformations": [{
-        "id": "prepareTimeSeries",
-        "options": {
-          "format": "wide"
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "wide"
+          }
         }
-      }],
+      ],
       "type": "heatmap"
     },
     {
@@ -980,7 +1136,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 40
       },
       "id": 10,
       "options": {
@@ -1007,7 +1163,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m]))",
+          "expr": "sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m]))",
           "format": "time_series",
           "instant": false,
           "legendFormat": "{{cluster}} - {{le}}",
@@ -1015,12 +1171,14 @@
         }
       ],
       "title": "End-to-End Latency Distribution by Cluster",
-      "transformations": [{
-        "id": "prepareTimeSeries",
-        "options": {
-          "format": "wide"
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "wide"
+          }
         }
-      }],
+      ],
       "type": "heatmap"
     },
     {
@@ -1029,7 +1187,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 33
+        "y": 49
       },
       "id": 11,
       "panels": [],
@@ -1096,7 +1254,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 34
+        "y": 50
       },
       "id": 12,
       "options": {
@@ -1118,7 +1276,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "legendFormat": "Packaging - {{cluster}}",
           "refId": "A"
         },
@@ -1128,7 +1286,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "legendFormat": "Delivery - {{cluster}}",
           "refId": "B"
         },
@@ -1138,7 +1296,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "legendFormat": "Activation - {{cluster}}",
           "refId": "C"
         }
@@ -1206,7 +1364,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 34
+        "y": 50
       },
       "id": 13,
       "options": {
@@ -1228,7 +1386,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "legendFormat": "Status Report - {{cluster}}",
           "refId": "A"
         },
@@ -1238,7 +1396,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "legendFormat": "Status Finalization - {{cluster}}",
           "refId": "B"
         },
@@ -1248,7 +1406,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "legendFormat": "Total Upsync - {{cluster}}",
           "refId": "C"
         }
@@ -1289,7 +1447,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 59
       },
       "id": 14,
       "options": {
@@ -1314,7 +1472,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", deployment=~\"$deployment\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "format": "table",
           "instant": true,
           "legendFormat": "{{cluster}}",
@@ -1386,24 +1544,47 @@
         "type": "query"
       },
       {
+        "name": "object_type",
+        "label": "Object Type",
+        "type": "custom",
+        "query": "Deployment",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
         "allValue": null,
         "current": {
           "selected": true,
-          "text": "All Deployments",
+          "text": "Deployment",
+          "value": "Deployment"
+        },
+        "options": [
+          {
+            "text": "Deployment",
+            "value": "Deployment",
+            "selected": true
+          }
+        ],
+        "skipUrlSync": false
+      },
+      {
+        "allValue": null,
+        "current": {
+          "selected": true,
+          "text": "All Workloads",
           "value": "$__all"
         },
         "datasource": {
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values(kubestellar_downsync_packaging_duration_seconds_count{cluster=~\"$cluster\"}, deployment)",
+        "definition": "label_values(kubestellar_downsync_packaging_duration_seconds_count{cluster=~\"$cluster\"}, workload)",
         "hide": 0,
         "includeAll": true,
         "multi": false,
-        "name": "deployment",
+        "name": "workload",
         "options": [],
         "query": {
-          "query": "label_values(kubestellar_downsync_packaging_duration_seconds_count{cluster=~\"$cluster\"}, deployment)",
+          "query": "label_values(kubestellar_downsync_packaging_duration_seconds_count{cluster=~\"$cluster\"}, workload)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 1,
