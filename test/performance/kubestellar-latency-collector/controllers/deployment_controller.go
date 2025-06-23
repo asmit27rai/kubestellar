@@ -87,6 +87,7 @@ type LatencyCollectorReconciler struct {
 	totalUpsyncFinalHistogram  *prometheus.HistogramVec
 	totalUpsyncHistogram       *prometheus.HistogramVec
 	totalE2EHistogram          *prometheus.HistogramVec
+    workloadCountGauge         *prometheus.GaugeVec
 }
 
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
@@ -151,6 +152,11 @@ func (r *LatencyCollectorReconciler) registerMetrics() {
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
 	}, []string{"workload", "cluster"})
 
+    r.workloadCountGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "kubestellar_workload_count",
+		Help: "Number of workload objects deployed in clusters",
+	}, []string{"cluster"})
+
 	// Register all histograms
 	metrics.Registry.MustRegister(
 		r.totalPackagingHistogram,
@@ -161,6 +167,7 @@ func (r *LatencyCollectorReconciler) registerMetrics() {
 		r.totalUpsyncFinalHistogram,
 		r.totalUpsyncHistogram,
 		r.totalE2EHistogram,
+        r.workloadCountGauge,
 	)
 }
 
@@ -425,6 +432,7 @@ func (r *LatencyCollectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// Process each cluster
+    workloadCounts := make(map[string]int)
 	for clusterName := range r.WecClients {
 		logger := logger.WithValues("cluster", clusterName)
 		clusterData := entry.clusterData[clusterName]
@@ -434,12 +442,18 @@ func (r *LatencyCollectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		// Only proceed if ManifestWork was found
 		if clusterData.manifestWorkName != "" {
+            workloadCounts[clusterName]++
 			r.lookupAppliedManifestWork(ctx, deploy.Name, clusterName, entry)
 			r.lookupWorkStatus(ctx, deploy.Name, clusterName, entry)
 			r.lookupWECDeployment(ctx, deploy.Name, clusterName, entry)
 		} else {
 			logger.Info("Skipping cluster - no ManifestWork found")
 		}
+	}
+
+    // Update workload counts
+	for cluster, count := range workloadCounts {
+		r.workloadCountGauge.WithLabelValues(cluster).Set(float64(count))
 	}
 
 	// Record metrics
@@ -466,13 +480,13 @@ func (r *LatencyCollectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		d = duration(entry.wdsDeploymentCreated, clusterData.wecDeploymentCreated, now)
 		r.totalDownsyncHistogram.WithLabelValues(deploy.Name, clusterName).Observe(d)
 
-		d = duration(clusterData.wecDeploymentCreated, clusterData.workStatusTime, now)
+		d = duration(clusterData.wecDeploymentStatusTime, clusterData.workStatusTime, now)
 		r.totalUpsyncReportHistogram.WithLabelValues(deploy.Name, clusterName).Observe(d)
 
 		d = duration(clusterData.workStatusTime, entry.wdsDeploymentStatusTime, now)
 		r.totalUpsyncFinalHistogram.WithLabelValues(deploy.Name, clusterName).Observe(d)
 
-		d = duration(clusterData.wecDeploymentCreated, entry.wdsDeploymentStatusTime, now)
+		d = duration(clusterData.wecDeploymentStatusTime, entry.wdsDeploymentStatusTime, now)
 		r.totalUpsyncHistogram.WithLabelValues(deploy.Name, clusterName).Observe(d)
 
 		d = duration(entry.wdsDeploymentCreated, entry.wdsDeploymentStatusTime, now)

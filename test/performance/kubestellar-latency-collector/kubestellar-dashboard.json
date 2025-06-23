@@ -34,39 +34,11 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Shows end-to-end latency percentiles over time for each cluster",
+      "description": "Workload objects deployed in clusters",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "mode": "continuous-GrYlRd"
           },
           "mappings": [],
           "thresholds": {
@@ -81,8 +53,7 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "s"
+          }
         },
         "overrides": []
       },
@@ -92,22 +63,22 @@
         "x": 0,
         "y": 0
       },
-      "id": 8,
+      "id": 18,
       "options": {
-        "legend": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
           "calcs": [
-            "mean",
             "lastNotNull"
           ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "textMode": "auto"
       },
+      "pluginVersion": "10.1.1",
       "targets": [
         {
           "datasource": {
@@ -115,50 +86,22 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
-          "legendFormat": "99th %ile - {{cluster}}",
+          "expr": "kubestellar_workload_count{cluster=~\"$cluster\"}",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{cluster}}",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
-          "legendFormat": "75th %ile - {{cluster}}",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
-          "legendFormat": "50th %ile - {{cluster}}",
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
-          "legendFormat": "25th %ile - {{cluster}}",
-          "refId": "D"
         }
       ],
-      "title": "End-to-End Latency by Cluster (Percentiles)",
-      "type": "timeseries"
+      "title": "Workload Count per Cluster",
+      "type": "stat"
     },
     {
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Shows the 99th percentile end-to-end latency for each workload to identify which workload is responsible for latency peaks",
+      "description": "End-to-End latency for each workload to identify which workload is responsible for latency peaks",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -242,10 +185,53 @@
           "expr": "histogram_quantile(0.99, sum by (le, workload) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
           "legendFormat": "99th %ile - {{workload}}",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.75, sum by (le, workload) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "75th %ile - {{workload}}",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum by (le, workload) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "50th %ile - {{workload}}",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.25, sum by (le, workload) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "25th %ile - {{workload}}",
+          "refId": "D"
         }
       ],
-      "title": "End-to-End Latency by Workload (99th Percentile)",
+      "title": "End-to-End Latency by Workload",
       "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 11,
+      "panels": [],
+      "title": "Downsync Process Breakdown",
+      "type": "row"
     },
     {
       "datasource": {
@@ -308,7 +294,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 16
+        "y": 17
       },
       "id": 2,
       "options": {
@@ -432,7 +418,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 16
+        "y": 17
       },
       "id": 3,
       "options": {
@@ -556,7 +542,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 16
+        "y": 17
       },
       "id": 5,
       "options": {
@@ -620,6 +606,19 @@
       "type": "timeseries"
     },
     {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "id": 12,
+      "panels": [],
+      "title": "Upsync Process Breakdown",
+      "type": "row"
+    },
+    {
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -678,9 +677,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 12,
         "x": 0,
-        "y": 24
+        "y": 26
       },
       "id": 6,
       "options": {
@@ -802,9 +801,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 24
+        "w": 12,
+        "x": 12,
+        "y": 26
       },
       "id": 7,
       "options": {
@@ -873,11 +872,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 34
       },
-      "id": 11,
+      "id": 13,
       "panels": [],
-      "title": "Stage Comparison",
+      "title": "Total Latency Summaries",
       "type": "row"
     },
     {
@@ -885,24 +884,25 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
+      "description": "Total Downsync latency percentiles over time",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "Latency (seconds)",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 5,
+            "fillOpacity": 10,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
@@ -912,7 +912,7 @@
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -937,22 +937,25 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
+        "h": 8,
         "w": 12,
         "x": 0,
-        "y": 33
+        "y": 35
       },
-      "id": 12,
+      "id": 20,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -962,8 +965,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
-          "legendFormat": "Packaging - {{cluster}}",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
         {
@@ -972,8 +975,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
-          "legendFormat": "Delivery - {{cluster}}",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
         {
@@ -982,12 +985,22 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
-          "legendFormat": "Activation - {{cluster}}",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "50th %ile - {{cluster}}",
           "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "25th %ile - {{cluster}}",
+          "refId": "D"
         }
       ],
-      "title": "Downsync Stage Comparison (95th Percentile)",
+      "title": "Total Downsync Percentiles",
       "type": "timeseries"
     },
     {
@@ -995,24 +1008,25 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
+      "description": "Total Upsync latency percentiles over time",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "Latency (seconds)",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 5,
+            "fillOpacity": 10,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
@@ -1022,7 +1036,7 @@
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -1047,22 +1061,25 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
+        "h": 8,
         "w": 12,
         "x": 12,
-        "y": 33
+        "y": 35
       },
-      "id": 13,
+      "id": 21,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -1072,8 +1089,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
-          "legendFormat": "Status Report - {{cluster}}",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
         {
@@ -1082,8 +1099,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
-          "legendFormat": "Status Finalization - {{cluster}}",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
         {
@@ -1092,12 +1109,22 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
-          "legendFormat": "Total Upsync - {{cluster}}",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "50th %ile - {{cluster}}",
           "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\", workload=~\"$workload\"}[5m])))",
+          "legendFormat": "25th %ile - {{cluster}}",
+          "refId": "D"
         }
       ],
-      "title": "Upsync Stage Comparison (95th Percentile)",
+      "title": "Total Upsync Percentiles",
       "type": "timeseries"
     },
     {
@@ -1133,7 +1160,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 42
+        "y": 43
       },
       "id": 14,
       "options": {
