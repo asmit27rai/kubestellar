@@ -432,7 +432,6 @@ func (r *LatencyCollectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// Process each cluster
-    workloadCounts := make(map[string]int)
 	for clusterName := range r.WecClients {
 		logger := logger.WithValues("cluster", clusterName)
 		clusterData := entry.clusterData[clusterName]
@@ -442,7 +441,6 @@ func (r *LatencyCollectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		// Only proceed if ManifestWork was found
 		if clusterData.manifestWorkName != "" {
-            workloadCounts[clusterName]++
 			r.lookupAppliedManifestWork(ctx, deploy.Name, clusterName, entry)
 			r.lookupWorkStatus(ctx, deploy.Name, clusterName, entry)
 			r.lookupWECDeployment(ctx, deploy.Name, clusterName, entry)
@@ -451,9 +449,21 @@ func (r *LatencyCollectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-    // Update workload counts
-	for cluster, count := range workloadCounts {
-		r.workloadCountGauge.WithLabelValues(cluster).Set(float64(count))
+    for clusterName, wecClient := range r.WecClients {
+		deps, err := wecClient.
+			AppsV1().
+			Deployments(r.MonitoredNamespace).
+			List(ctx, metav1.ListOptions{})
+		if err != nil {
+			log.FromContext(ctx).
+				WithValues("cluster", clusterName).
+				Error(err, "failed to list deployments for workload-count gauge")
+			continue
+		}
+		total := len(deps.Items)
+		r.workloadCountGauge.
+			WithLabelValues(clusterName).
+			Set(float64(total))
 	}
 
 	// Record metrics
