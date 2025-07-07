@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kubestellar/latency-collector/internal/controller"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -47,6 +48,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(corev1.AddToScheme(scheme))
 }
 
 func main() {

@@ -115,7 +115,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
@@ -125,7 +125,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
@@ -135,7 +135,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "50th %ile - {{cluster}}",
           "refId": "C"
         },
@@ -145,7 +145,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_e2e_latency_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "25th %ile - {{cluster}}",
           "refId": "D"
         }
@@ -252,7 +252,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
@@ -262,7 +262,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
@@ -272,7 +272,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "50th %ile - {{cluster}}",
           "refId": "C"
         },
@@ -282,7 +282,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_packaging_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "25th %ile - {{cluster}}",
           "refId": "D"
         }
@@ -376,7 +376,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
@@ -386,7 +386,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
@@ -396,7 +396,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "50th %ile - {{cluster}}",
           "refId": "C"
         },
@@ -406,7 +406,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_delivery_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "25th %ile - {{cluster}}",
           "refId": "D"
         }
@@ -500,7 +500,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
@@ -510,7 +510,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
@@ -520,7 +520,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "50th %ile - {{cluster}}",
           "refId": "C"
         },
@@ -530,12 +530,12 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_activation_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "25th %ile - {{cluster}}",
           "refId": "D"
         }
       ],
-      "title": "Activation Latency (AppliedManifestWork → WEC Deployment) Percentiles",
+      "title": "Activation Latency (AppliedManifestWork → WEC Object) Percentiles",
       "type": "timeseries"
     },
     {
@@ -637,7 +637,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
@@ -647,7 +647,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
@@ -657,7 +657,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "50th %ile - {{cluster}}",
           "refId": "C"
         },
@@ -667,12 +667,12 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_upsync_report_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "25th %ile - {{cluster}}",
           "refId": "D"
         }
       ],
-      "title": "Status Report Latency (WEC Deployment → WorkStatus) Percentiles",
+      "title": "Status Report Latency (WEC Object → WorkStatus) Percentiles",
       "type": "timeseries"
     },
     {
@@ -761,7 +761,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
@@ -771,7 +771,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
@@ -781,7 +781,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "50th %ile - {{cluster}}",
           "refId": "C"
         },
@@ -791,7 +791,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_upsync_finalization_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "25th %ile - {{cluster}}",
           "refId": "D"
         }
@@ -898,7 +898,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_downsync_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
@@ -908,7 +908,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_downsync_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
@@ -918,7 +918,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_downsync_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "50th %ile - {{cluster}}",
           "refId": "C"
         },
@@ -928,7 +928,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_downsync_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "25th %ile - {{cluster}}",
           "refId": "D"
         }
@@ -1022,7 +1022,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "99th %ile - {{cluster}}",
           "refId": "A"
         },
@@ -1032,7 +1032,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.75, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "75th %ile - {{cluster}}",
           "refId": "B"
         },
@@ -1042,7 +1042,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "50th %ile - {{cluster}}",
           "refId": "C"
         },
@@ -1052,7 +1052,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.25, sum by (le, cluster) (rate(kubestellar_upsync_duration_seconds_bucket{cluster=~\"$cluster\", kind=~\"$object_type\"}[5m])))",
           "legendFormat": "25th %ile - {{cluster}}",
           "refId": "D"
         }
@@ -1157,12 +1157,12 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster) (kubestellar_workload_count{cluster=~\"$cluster\"})",
-          "legendFormat": "{{cluster}}",
+          "expr": "sum by (cluster, kind) (kubestellar_workload_count{cluster=~\"$cluster\", kind=~\"$object_type\"})",
+          "legendFormat": "{{cluster}} - {{kind}}",
           "refId": "A"
         }
       ],
-      "title": "Cumulative Workload Deployment Count",
+      "title": "Cumulative Workload Object Count",
       "type": "timeseries"
     }
   ],
@@ -1230,7 +1230,7 @@
         "name": "object_type",
         "label": "Object Type",
         "type": "custom",
-        "query": "Deployment",
+        "query": "",
         "hide": 0,
         "includeAll": false,
         "multi": false,
@@ -1245,6 +1245,11 @@
             "text": "Deployment",
             "value": "Deployment",
             "selected": true
+          },
+          {
+            "text": "Pod",
+            "value": "Pod",
+            "selected": false
           }
         ],
         "skipUrlSync": false

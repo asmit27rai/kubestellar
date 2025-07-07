@@ -25,6 +25,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -34,27 +35,33 @@ import (
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
-const workStatusSuffixFmt = "appsv1-deployment-%s-%s"
+const (
+	workStatusSuffixFmt = "%s-%s-%s-%s" // Format: <apiVersion>-<kind>-<namespace>-<name>
+)
 
 // ClusterData holds timestamps for a specific cluster
 type ClusterData struct {
 	manifestWorkName           string
 	manifestWorkCreated        time.Time
 	appliedManifestWorkCreated time.Time
-	wecDeploymentCreated       time.Time
-	wecDeploymentStatusTime    time.Time
+	wecObjectCreated           time.Time
+	wecObjectStatusTime        time.Time
 	workStatusTime             time.Time
 }
 
 // PerWorkloadCache holds all observed timestamps for one workload
 type PerWorkloadCache struct {
-	wdsDeploymentCreated    time.Time
-	wdsDeploymentStatusTime time.Time
-	clusterData             map[string]*ClusterData
+	wdsObjectCreated    time.Time
+	wdsObjectStatusTime time.Time
+	clusterData         map[string]*ClusterData
+	gvk                 schema.GroupVersionKind // Store GVK for the object
+	name                string
+	namespace           string
 }
 
 // LatencyCollectorReconciler collects end-to-end latencies across all workloads in a namespace
@@ -74,7 +81,7 @@ type LatencyCollectorReconciler struct {
 	BindingName        string
 	bindingCreated     time.Time
 
-	// Cache mapping workload name -> timestamps
+	// Cache mapping workload key (namespace/name) -> timestamps
 	cache    map[string]*PerWorkloadCache
 	cacheMux sync.Mutex
 
@@ -91,6 +98,7 @@ type LatencyCollectorReconciler struct {
 }
 
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
+//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups=control.kubestellar.io,resources=bindingpolicies;workstatuses,verbs=get;list
 //+kubebuilder:rbac:groups=work.open-cluster-management.io,resources=manifestworks;appliedmanifestworks,verbs=get;list
 
@@ -98,6 +106,10 @@ func (r *LatencyCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.cache = make(map[string]*PerWorkloadCache)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1.Deployment{}).
+		Watches(
+			&corev1.Pod{},
+			&handler.EnqueueRequestForObject{},
+		).
 		Complete(r)
 }
 
@@ -105,56 +117,56 @@ func (r *LatencyCollectorReconciler) RegisterMetrics() {
 	// Initialize HistogramVecs for each lifecycle stage
 	r.totalPackagingHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_downsync_packaging_duration_seconds",
-		Help:    "Histogram of WDS deployment → ManifestWork creation durations",
+		Help:    "Histogram of WDS object → ManifestWork creation durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster"})
+	}, []string{"workload", "cluster", "kind"})
 
 	r.totalDeliveryHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_downsync_delivery_duration_seconds",
 		Help:    "Histogram of ManifestWork → AppliedManifestWork creation durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster"})
+	}, []string{"workload", "cluster", "kind"})
 
 	r.totalActivationHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_downsync_activation_duration_seconds",
-		Help:    "Histogram of AppliedManifestWork → WEC deployment creation durations",
+		Help:    "Histogram of AppliedManifestWork → WEC object creation durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster"})
+	}, []string{"workload", "cluster", "kind"})
 
 	r.totalDownsyncHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_downsync_duration_seconds",
-		Help:    "Histogram of WDS deployment → WEC deployment creation durations",
+		Help:    "Histogram of WDS object → WEC object creation durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster"})
+	}, []string{"workload", "cluster", "kind"})
 
 	r.totalUpsyncReportHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_upsync_report_duration_seconds",
-		Help:    "Histogram of WEC deployment → WorkStatus report durations",
+		Help:    "Histogram of WEC object → WorkStatus report durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster"})
+	}, []string{"workload", "cluster", "kind"})
 
 	r.totalUpsyncFinalHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_upsync_finalization_duration_seconds",
-		Help:    "Histogram of WorkStatus → WDS Deployment status durations",
+		Help:    "Histogram of WorkStatus → WDS object status durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster"})
+	}, []string{"workload", "cluster", "kind"})
 
 	r.totalUpsyncHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_upsync_duration_seconds",
-		Help:    "Histogram of WEC deployment → WDS Deployment status durations",
+		Help:    "Histogram of WEC object → WDS object status durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster"})
+	}, []string{"workload", "cluster", "kind"})
 
 	r.totalE2EHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_e2e_latency_duration_seconds",
 		Help:    "Histogram of total binding → WDS status durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster"})
+	}, []string{"workload", "cluster", "kind"})
 
 	r.workloadCountGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "kubestellar_workload_count",
 		Help: "Number of workload objects deployed in clusters",
-	}, []string{"cluster"})
+	}, []string{"cluster", "kind"})
 
 	// Register all histograms
 	metrics.Registry.MustRegister(
@@ -170,9 +182,9 @@ func (r *LatencyCollectorReconciler) RegisterMetrics() {
 	)
 }
 
-func (r *LatencyCollectorReconciler) lookupManifestWorkForCluster(ctx context.Context, workloadName, clusterName string, entry *PerWorkloadCache) {
+func (r *LatencyCollectorReconciler) lookupManifestWorkForCluster(ctx context.Context, key string, clusterName string, entry *PerWorkloadCache) {
 	logger := log.FromContext(ctx).WithValues(
-		"workload", workloadName,
+		"workload", key,
 		"cluster", clusterName,
 		"function", "lookupManifestWorkForCluster",
 	)
@@ -197,7 +209,6 @@ func (r *LatencyCollectorReconciler) lookupManifestWorkForCluster(ctx context.Co
 	}
 
 	logger.Info("Processing ManifestWorks", "count", len(list.Items))
-	found := false
 	for _, mw := range list.Items {
 		manifestSlice, _, _ := unstructured.NestedSlice(mw.Object, "spec", "workload", "manifests")
 		for _, m := range manifestSlice {
@@ -205,35 +216,34 @@ func (r *LatencyCollectorReconciler) lookupManifestWorkForCluster(ctx context.Co
 				kind, _, _ := unstructured.NestedString(mMap, "kind")
 				metaName, _, _ := unstructured.NestedString(mMap, "metadata", "name")
 				metaNamespace, _, _ := unstructured.NestedString(mMap, "metadata", "namespace")
-				if kind == "Deployment" && metaName == workloadName && metaNamespace == r.MonitoredNamespace {
+
+				// Match both Pods and Deployments
+				if (kind == "Deployment" || kind == "Pod") &&
+					metaName == entry.name &&
+					metaNamespace == entry.namespace {
+
 					ts := mw.GetCreationTimestamp().Time
 					if clusterData.manifestWorkCreated.IsZero() {
 						clusterData.manifestWorkName = mw.GetName()
 						clusterData.manifestWorkCreated = ts
 						logger.Info("📦 ManifestWork creation timestamp recorded",
-							"manifestWork", mw.GetName(), "timestamp", ts)
+							"manifestWork", mw.GetName(), "timestamp", ts, "kind", kind)
 					} else {
 						logger.Info("📦 ManifestWork already recorded",
-							"manifestWork", mw.GetName(), "timestamp", ts)
+							"manifestWork", mw.GetName(), "timestamp", ts, "kind", kind)
 					}
-					found = true
-					break
+					return
 				}
 			}
 		}
-		if found {
-			break
-		}
 	}
 
-	if !found {
-		logger.Info("No matching ManifestWork found for workload in cluster namespace")
-	}
+	logger.Info("No matching ManifestWork found for workload in cluster namespace", "kind", entry.gvk.Kind)
 }
 
-func (r *LatencyCollectorReconciler) lookupAppliedManifestWork(ctx context.Context, workloadName, clusterName string, entry *PerWorkloadCache) {
+func (r *LatencyCollectorReconciler) lookupAppliedManifestWork(ctx context.Context, key string, clusterName string, entry *PerWorkloadCache) {
 	logger := log.FromContext(ctx).WithValues(
-		"workload", workloadName,
+		"workload", key,
 		"cluster", clusterName,
 		"function", "lookupAppliedManifestWork",
 	)
@@ -263,7 +273,6 @@ func (r *LatencyCollectorReconciler) lookupAppliedManifestWork(ctx context.Conte
 	}
 
 	logger.Info("Processing AppliedManifestWorks", "count", len(list.Items))
-	found := false
 	for _, aw := range list.Items {
 		parts := strings.SplitN(aw.GetName(), "-", 2)
 		if len(parts) == 2 && parts[1] == clusterData.manifestWorkName {
@@ -276,20 +285,24 @@ func (r *LatencyCollectorReconciler) lookupAppliedManifestWork(ctx context.Conte
 				logger.Info("📬 AppliedManifestWork already recorded",
 					"appliedManifestWork", aw.GetName(), "timestamp", ts)
 			}
-			found = true
-			break
+			return
 		}
 	}
 
-	if !found {
-		logger.Info("No matching AppliedManifestWork found",
-			"manifestWork", clusterData.manifestWorkName)
-	}
+	logger.Info("No matching AppliedManifestWork found",
+		"manifestWork", clusterData.manifestWorkName)
 }
 
-func (r *LatencyCollectorReconciler) lookupWorkStatus(ctx context.Context, workloadName, clusterName string, entry *PerWorkloadCache) {
+func normalizedGroupVersion(gvk schema.GroupVersionKind) string {
+	if gvk.Group == "apps" && gvk.Version == "v1" {
+		return "appsv1"
+	}
+	return strings.ToLower(gvk.GroupVersion().String())
+}
+
+func (r *LatencyCollectorReconciler) lookupWorkStatus(ctx context.Context, key string, clusterName string, entry *PerWorkloadCache) {
 	logger := log.FromContext(ctx).WithValues(
-		"workload", workloadName,
+		"workload", key,
 		"cluster", clusterName,
 		"function", "lookupWorkStatus",
 	)
@@ -312,7 +325,13 @@ func (r *LatencyCollectorReconciler) lookupWorkStatus(ctx context.Context, workl
 	}
 
 	logger.Info("Processing WorkStatuses", "count", len(list.Items))
-	suffix := fmt.Sprintf("appsv1-deployment-%s-%s", r.MonitoredNamespace, workloadName)
+	// Format: <apiVersion>-<kind>-<namespace>-<name>
+	suffix := fmt.Sprintf(workStatusSuffixFmt,
+		normalizedGroupVersion(entry.gvk),
+		strings.ToLower(entry.gvk.Kind),
+		entry.namespace,
+		entry.name)
+
 	found := false
 	for _, ws := range list.Items {
 		if strings.HasSuffix(ws.GetName(), suffix) {
@@ -340,11 +359,11 @@ func (r *LatencyCollectorReconciler) lookupWorkStatus(ctx context.Context, workl
 	}
 }
 
-func (r *LatencyCollectorReconciler) lookupWECDeployment(ctx context.Context, workloadName, clusterName string, entry *PerWorkloadCache) {
+func (r *LatencyCollectorReconciler) lookupWECObject(ctx context.Context, key string, clusterName string, entry *PerWorkloadCache) {
 	logger := log.FromContext(ctx).WithValues(
-		"workload", workloadName,
+		"workload", key,
 		"cluster", clusterName,
-		"function", "lookupWECDeployment",
+		"function", "lookupWECObject",
 	)
 
 	client, exists := r.WecClients[clusterName]
@@ -353,14 +372,37 @@ func (r *LatencyCollectorReconciler) lookupWECDeployment(ctx context.Context, wo
 		return
 	}
 
-	dep, err := client.AppsV1().Deployments(r.MonitoredNamespace).Get(ctx, workloadName, metav1.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			logger.Info("WEC Deployment not yet created")
-		} else {
-			logger.Error(err, "Error fetching WEC Deployment")
+	var (
+		createdTime time.Time
+		statusTime  time.Time
+	)
+
+	switch entry.gvk.Kind {
+	case "Deployment":
+		dep, err := client.AppsV1().Deployments(entry.namespace).Get(ctx, entry.name, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.Info("WEC Deployment not yet created")
+			} else {
+				logger.Error(err, "Error fetching WEC Deployment")
+			}
+			return
 		}
-		return
+		createdTime = dep.CreationTimestamp.Time
+		statusTime = getDeploymentStatusTime(dep)
+
+	case "Pod":
+		pod, err := client.CoreV1().Pods(entry.namespace).Get(ctx, entry.name, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.Info("WEC Pod not yet created")
+			} else {
+				logger.Error(err, "Error fetching WEC Pod")
+			}
+			return
+		}
+		createdTime = pod.CreationTimestamp.Time
+		statusTime = getPodStatusTime(pod)
 	}
 
 	clusterData := entry.clusterData[clusterName]
@@ -370,21 +412,21 @@ func (r *LatencyCollectorReconciler) lookupWECDeployment(ctx context.Context, wo
 	}
 
 	// Record creation timestamp
-	if clusterData.wecDeploymentCreated.IsZero() {
-		clusterData.wecDeploymentCreated = dep.CreationTimestamp.Time
-		logger.Info("🏭 WEC Deployment creation timestamp recorded",
-			"timestamp", dep.CreationTimestamp.Time)
+	if clusterData.wecObjectCreated.IsZero() {
+		clusterData.wecObjectCreated = createdTime
+		logger.Info("🏭 WEC object creation timestamp recorded",
+			"kind", entry.gvk.Kind, "timestamp", createdTime)
 	}
 
 	// Record status timestamp
-	if st := getDeploymentStatusTime(dep); !st.IsZero() {
-		if clusterData.wecDeploymentStatusTime.IsZero() || st.After(clusterData.wecDeploymentStatusTime) {
-			clusterData.wecDeploymentStatusTime = st
-			logger.Info("✅ WEC Deployment status timestamp recorded",
-				"timestamp", st)
+	if !statusTime.IsZero() {
+		if clusterData.wecObjectStatusTime.IsZero() || statusTime.After(clusterData.wecObjectStatusTime) {
+			clusterData.wecObjectStatusTime = statusTime
+			logger.Info("✅ WEC object status timestamp recorded",
+				"kind", entry.gvk.Kind, "timestamp", statusTime)
 		}
 	} else {
-		logger.Info("⚠️ No valid status conditions found for WEC Deployment")
+		logger.Info("⚠️ No valid status conditions found for WEC object", "kind", entry.gvk.Kind)
 	}
 }
 
@@ -393,118 +435,157 @@ func (r *LatencyCollectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	logger := log.FromContext(ctx).WithValues("workload", req.Name, "function", "Reconcile")
-	logger.Info("🔄 Reconcile called for Deployment", "namespace", req.NamespacedName.Namespace, "name", req.NamespacedName.Name)
-
-	// Fetch deployment
+	// Process Deployments and Pods independently
 	var deploy appsv1.Deployment
-	if err := r.Get(ctx, req.NamespacedName, &deploy); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+	if err := r.Get(ctx, req.NamespacedName, &deploy); err == nil {
+		r.processDeployment(ctx, &deploy)
+	} else if !apierrors.IsNotFound(err) {
+		return ctrl.Result{}, err
 	}
 
-	// Populate cache entry
-	r.cacheMux.Lock()
-	entry, exists := r.cache[deploy.Name]
-	if !exists {
-		entry = &PerWorkloadCache{
-			clusterData: make(map[string]*ClusterData),
-		}
-		r.cache[deploy.Name] = entry
-	}
-	r.cacheMux.Unlock()
-
-	// Record WDS timestamps
-	if entry.wdsDeploymentCreated.IsZero() {
-		entry.wdsDeploymentCreated = deploy.CreationTimestamp.Time
-	}
-	if st := getDeploymentStatusTime(&deploy); !st.IsZero() {
-		if entry.wdsDeploymentStatusTime.IsZero() || st.After(entry.wdsDeploymentStatusTime) {
-			entry.wdsDeploymentStatusTime = st
-		}
-	}
-
-	// Ensure we have entries for all clusters
-	for clusterName := range r.WecClients {
-		if entry.clusterData[clusterName] == nil {
-			entry.clusterData[clusterName] = &ClusterData{}
-		}
-	}
-
-	// Process each cluster
-	for clusterName := range r.WecClients {
-		logger := logger.WithValues("cluster", clusterName)
-		clusterData := entry.clusterData[clusterName]
-
-		// Lookup ManifestWork in cluster namespace
-		r.lookupManifestWorkForCluster(ctx, deploy.Name, clusterName, entry)
-
-		// Only proceed if ManifestWork was found
-		if clusterData.manifestWorkName != "" {
-			r.lookupAppliedManifestWork(ctx, deploy.Name, clusterName, entry)
-			r.lookupWorkStatus(ctx, deploy.Name, clusterName, entry)
-			r.lookupWECDeployment(ctx, deploy.Name, clusterName, entry)
-		} else {
-			logger.Info("Skipping cluster - no ManifestWork found")
-		}
-	}
-
-	for clusterName, wecClient := range r.WecClients {
-		deps, err := wecClient.
-			AppsV1().
-			Deployments(r.MonitoredNamespace).
-			List(ctx, metav1.ListOptions{})
-		if err != nil {
-			log.FromContext(ctx).
-				WithValues("cluster", clusterName).
-				Error(err, "failed to list deployments for workload-count gauge")
-			continue
-		}
-		total := len(deps.Items)
-		r.workloadCountGauge.
-			WithLabelValues(clusterName).
-			Set(float64(total))
-	}
-
-	// Record metrics
-	now := time.Now()
-	for clusterName, clusterData := range entry.clusterData {
-		if clusterData == nil {
-			continue
-		}
-
-		// Only record metrics if we have ManifestWork data
-		if clusterData.manifestWorkName == "" {
-			continue
-		}
-
-		d := duration(entry.wdsDeploymentCreated, clusterData.manifestWorkCreated, now)
-		r.totalPackagingHistogram.WithLabelValues(deploy.Name, clusterName).Observe(d)
-
-		d = duration(clusterData.manifestWorkCreated, clusterData.appliedManifestWorkCreated, now)
-		r.totalDeliveryHistogram.WithLabelValues(deploy.Name, clusterName).Observe(d)
-
-		d = duration(clusterData.appliedManifestWorkCreated, clusterData.wecDeploymentCreated, now)
-		r.totalActivationHistogram.WithLabelValues(deploy.Name, clusterName).Observe(d)
-
-		d = duration(entry.wdsDeploymentCreated, clusterData.wecDeploymentCreated, now)
-		r.totalDownsyncHistogram.WithLabelValues(deploy.Name, clusterName).Observe(d)
-
-		d = duration(clusterData.wecDeploymentStatusTime, clusterData.workStatusTime, now)
-		r.totalUpsyncReportHistogram.WithLabelValues(deploy.Name, clusterName).Observe(d)
-
-		d = duration(clusterData.workStatusTime, entry.wdsDeploymentStatusTime, now)
-		r.totalUpsyncFinalHistogram.WithLabelValues(deploy.Name, clusterName).Observe(d)
-
-		d = duration(clusterData.wecDeploymentStatusTime, entry.wdsDeploymentStatusTime, now)
-		r.totalUpsyncHistogram.WithLabelValues(deploy.Name, clusterName).Observe(d)
-
-		d = duration(entry.wdsDeploymentCreated, entry.wdsDeploymentStatusTime, now)
-		r.totalE2EHistogram.WithLabelValues(deploy.Name, clusterName).Observe(d)
+	var pod corev1.Pod
+	if err := r.Get(ctx, req.NamespacedName, &pod); err == nil {
+		r.processPod(ctx, &pod)
+	} else if !apierrors.IsNotFound(err) {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
+func (r *LatencyCollectorReconciler) processDeployment(ctx context.Context, deploy *appsv1.Deployment) {
+	logger := log.FromContext(ctx).WithValues("deployment", deploy.Name)
+	logger.Info("Processing Deployment", "namespace", deploy.Namespace, "name", deploy.Name)
+	key := fmt.Sprintf("deploy-%s/%s", deploy.Namespace, deploy.Name)
+
+	r.cacheMux.Lock()
+	defer r.cacheMux.Unlock()
+
+	entry, exists := r.cache[key]
+	if !exists {
+		entry = &PerWorkloadCache{
+			gvk:         appsv1.SchemeGroupVersion.WithKind("Deployment"),
+			name:        deploy.Name,
+			namespace:   deploy.Namespace,
+			clusterData: make(map[string]*ClusterData),
+		}
+		r.cache[key] = entry
+	}
+
+	entry.wdsObjectCreated = deploy.CreationTimestamp.Time
+	if st := getDeploymentStatusTime(deploy); !st.IsZero() {
+		entry.wdsObjectStatusTime = st
+	}
+
+	r.processClusters(ctx, entry)
+}
+
+func (r *LatencyCollectorReconciler) processPod(ctx context.Context, pod *corev1.Pod) {
+	logger := log.FromContext(ctx).WithValues("pod", pod.Name)
+	logger.Info("Processing Pod", "namespace", pod.Namespace, "name", pod.Name)
+	key := fmt.Sprintf("pod-%s/%s", pod.Namespace, pod.Name)
+
+	r.cacheMux.Lock()
+	defer r.cacheMux.Unlock()
+
+	entry, exists := r.cache[key]
+	if !exists {
+		entry = &PerWorkloadCache{
+			gvk:         corev1.SchemeGroupVersion.WithKind("Pod"),
+			name:        pod.Name,
+			namespace:   pod.Namespace,
+			clusterData: make(map[string]*ClusterData),
+		}
+		r.cache[key] = entry
+	}
+
+	entry.wdsObjectCreated = pod.CreationTimestamp.Time
+	if st := getPodStatusTime(pod); !st.IsZero() {
+		entry.wdsObjectStatusTime = st
+	}
+
+	r.processClusters(ctx, entry)
+}
+
+func (r *LatencyCollectorReconciler) processClusters(ctx context.Context, entry *PerWorkloadCache) {
+	logger := log.FromContext(ctx)
+	logger.Info("Processing clusters for workload", "name", entry.name, "kind", entry.gvk.Kind)
+	kind := entry.gvk.Kind
+
+	// Construct the key as in processDeployment/processPod
+	var key string
+	switch kind {
+	case "Deployment":
+		key = fmt.Sprintf("deploy-%s/%s", entry.namespace, entry.name)
+	case "Pod":
+		key = fmt.Sprintf("pod-%s/%s", entry.namespace, entry.name)
+	default:
+		key = fmt.Sprintf("%s-%s/%s", strings.ToLower(kind), entry.namespace, entry.name)
+	}
+
+	for clusterName := range r.WecClients {
+		if entry.clusterData[clusterName] == nil {
+			entry.clusterData[clusterName] = &ClusterData{}
+		}
+		clusterData := entry.clusterData[clusterName]
+
+		r.lookupManifestWorkForCluster(ctx, key, clusterName, entry)
+		if clusterData.manifestWorkName != "" {
+			r.lookupAppliedManifestWork(ctx, key, clusterName, entry)
+			r.lookupWorkStatus(ctx, key, clusterName, entry)
+			r.lookupWECObject(ctx, key, clusterName, entry)
+		}
+
+		// Record metrics
+		now := time.Now()
+		labels := prometheus.Labels{
+			"workload": entry.name,
+			"cluster":  clusterName,
+			"kind":     kind,
+		}
+
+		r.totalPackagingHistogram.With(labels).Observe(
+			duration(entry.wdsObjectCreated, clusterData.manifestWorkCreated, now),
+		)
+		r.totalDeliveryHistogram.With(labels).Observe(
+			duration(clusterData.manifestWorkCreated, clusterData.appliedManifestWorkCreated, now),
+		)
+		r.totalActivationHistogram.With(labels).Observe(
+			duration(clusterData.appliedManifestWorkCreated, clusterData.wecObjectCreated, now),
+		)
+		r.totalDownsyncHistogram.With(labels).Observe(
+			duration(entry.wdsObjectCreated, clusterData.wecObjectCreated, now),
+		)
+		r.totalUpsyncReportHistogram.With(labels).Observe(
+			duration(clusterData.wecObjectStatusTime, clusterData.workStatusTime, now),
+		)
+		r.totalUpsyncFinalHistogram.With(labels).Observe(
+			duration(clusterData.workStatusTime, entry.wdsObjectStatusTime, now),
+		)
+		r.totalUpsyncHistogram.With(labels).Observe(
+			duration(clusterData.wecObjectStatusTime, entry.wdsObjectStatusTime, now),
+		)
+		r.totalE2EHistogram.With(labels).Observe(
+			duration(entry.wdsObjectCreated, entry.wdsObjectStatusTime, now),
+		)
+	}
+
+	// Update workload count
+	for clusterName, client := range r.WecClients {
+		switch kind {
+		case "Deployment":
+			if deps, err := client.AppsV1().Deployments(r.MonitoredNamespace).List(ctx, metav1.ListOptions{}); err == nil {
+				r.workloadCountGauge.WithLabelValues(clusterName, "Deployment").Set(float64(len(deps.Items)))
+			}
+		case "Pod":
+			if pods, err := client.CoreV1().Pods(r.MonitoredNamespace).List(ctx, metav1.ListOptions{}); err == nil {
+				r.workloadCountGauge.WithLabelValues(clusterName, "Pod").Set(float64(len(pods.Items)))
+			}
+		}
+	}
+}
+
+// Helper functions
 func duration(start, end, now time.Time) float64 {
 	if start.IsZero() {
 		return 0
@@ -520,6 +601,16 @@ func getDeploymentStatusTime(dep *appsv1.Deployment) time.Time {
 	for _, cond := range dep.Status.Conditions {
 		if !cond.LastUpdateTime.IsZero() && cond.LastUpdateTime.Time.After(latest) {
 			latest = cond.LastUpdateTime.Time
+		}
+	}
+	return latest
+}
+
+func getPodStatusTime(pod *corev1.Pod) time.Time {
+	var latest time.Time
+	for _, cond := range pod.Status.Conditions {
+		if !cond.LastTransitionTime.IsZero() && cond.LastTransitionTime.Time.After(latest) {
+			latest = cond.LastTransitionTime.Time
 		}
 	}
 	return latest

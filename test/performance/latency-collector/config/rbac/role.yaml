@@ -21,6 +21,14 @@ rules:
   - get
   - list
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - work.open-cluster-management.io
   resources:
   - appliedmanifestworks
