@@ -1241,16 +1241,33 @@
           "value": "Deployment"
         },
         "options": [
-          {
-            "text": "Deployment",
-            "value": "Deployment",
-            "selected": true
-          },
-          {
-            "text": "Pod",
-            "value": "Pod",
-            "selected": false
-          }
+          { "text": "Deployment", "value": "Deployment", "selected": true },
+          { "text": "Pod", "value": "Pod", "selected": false },
+          { "text": "Service", "value": "Service", "selected": false },
+          { "text": "ReplicaSet", "value": "ReplicaSet", "selected": false },
+          { "text": "DaemonSet", "value": "DaemonSet", "selected": false },
+          { "text": "StatefulSet", "value": "StatefulSet", "selected": false },
+          { "text": "ConfigMap", "value": "ConfigMap", "selected": false },
+          { "text": "Secret", "value": "Secret", "selected": false },
+          { "text": "PersistentVolume", "value": "PersistentVolume", "selected": false },
+          { "text": "PersistentVolumeClaim", "value": "PersistentVolumeClaim", "selected": false },
+          { "text": "Namespace", "value": "Namespace", "selected": false },
+          { "text": "Node", "value": "Node", "selected": false },
+          { "text": "ServiceAccount", "value": "ServiceAccount", "selected": false },
+          { "text": "Role", "value": "Role", "selected": false },
+          { "text": "RoleBinding", "value": "RoleBinding", "selected": false },
+          { "text": "ClusterRole", "value": "ClusterRole", "selected": false },
+          { "text": "ClusterRoleBinding", "value": "ClusterRoleBinding", "selected": false },
+          { "text": "Ingress", "value": "Ingress", "selected": false },
+          { "text": "NetworkPolicy", "value": "NetworkPolicy", "selected": false },
+          { "text": "PodDisruptionBudget", "value": "PodDisruptionBudget", "selected": false },
+          { "text": "HorizontalPodAutoscaler", "value": "HorizontalPodAutoscaler", "selected": false },
+          { "text": "Job", "value": "Job", "selected": false },
+          { "text": "CronJob", "value": "CronJob", "selected": false },
+          { "text": "LimitRange", "value": "LimitRange", "selected": false },
+          { "text": "ResourceQuota", "value": "ResourceQuota", "selected": false },
+          { "text": "ReplicationController", "value": "ReplicationController", "selected": false },
+          { "text": "Endpoints", "value": "Endpoints", "selected": false }
         ],
         "skipUrlSync": false
       }

@@ -5,9 +5,9 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - apps
+  - '*'
   resources:
-  - deployments
+  - '*'
   verbs:
   - get
   - list
@@ -20,14 +20,6 @@ rules:
   verbs:
   - get
   - list
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
 - apiGroups:
   - work.open-cluster-management.io
   resources:
