@@ -47,6 +47,25 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
+// Resource groups to exclude for watchers as they should not be delivered to other clusters
+var excludedGroups = map[string]bool{
+	"flowcontrol.apiserver.k8s.io": true,
+	"discovery.k8s.io":             true,
+	"apiregistration.k8s.io":       true,
+	"coordination.k8s.io":          true,
+	"control.kubestellar.io":       true,
+}
+
+// Resource names to exclude for watchers as they should not be delivered to other clusters
+var excludedResourceNames = map[string]bool{
+	"events":               true,
+	"nodes":                true,
+	"csistoragecapacities": true,
+	"csinodes":             true,
+	"endpoints":            true,
+	"workstatuses":         true,
+}
+
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	// Allow Unstructured (and lists) in v1 core
@@ -222,51 +241,6 @@ func main() {
 	}
 }
 
-func getKindFromResource(resource string) string {
-	// Common resource to kind mappings
-	kindMappings := map[string]string{
-		"pods":                     "Pod",
-		"services":                 "Service",
-		"deployments":              "Deployment",
-		"replicasets":              "ReplicaSet",
-		"daemonsets":               "DaemonSet",
-		"statefulsets":             "StatefulSet",
-		"configmaps":               "ConfigMap",
-		"secrets":                  "Secret",
-		"persistentvolumes":        "PersistentVolume",
-		"persistentvolumeclaims":   "PersistentVolumeClaim",
-		"namespaces":               "Namespace",
-		"nodes":                    "Node",
-		"serviceaccounts":          "ServiceAccount",
-		"roles":                    "Role",
-		"rolebindings":             "RoleBinding",
-		"clusterroles":             "ClusterRole",
-		"clusterrolebindings":      "ClusterRoleBinding",
-		"ingresses":                "Ingress",
-		"networkpolicies":          "NetworkPolicy",
-		"poddisruptionbudgets":     "PodDisruptionBudget",
-		"horizontalpodautoscalers": "HorizontalPodAutoscaler",
-		"jobs":                     "Job",
-		"cronjobs":                 "CronJob",
-		"limitranges":              "LimitRange",
-		"resourcequotas":           "ResourceQuota",
-		"replicationcontrollers":   "ReplicationController",
-		"endpoints":                "Endpoints",
-	}
-
-	if kind, exists := kindMappings[resource]; exists {
-		return kind
-	}
-
-	// Fallback: capitalize first letter and remove 's' if ends with 's'
-	if len(resource) > 1 && strings.HasSuffix(resource, "s") {
-		singular := resource[:len(resource)-1]
-		return strings.Title(singular)
-	}
-
-	return strings.Title(resource)
-}
-
 // Update the discoverResources function to return GVK instead of GVR
 func discoverResources(config *rest.Config, excludedResources, includedGroups string) ([]schema.GroupVersionKind, error) {
 	clientset, err := kubernetes.NewForConfig(config)
@@ -301,9 +275,21 @@ func discoverResources(config *rest.Config, excludedResources, includedGroups st
 	}
 
 	for _, group := range serverResources {
+		gv, err := schema.ParseGroupVersion(group.GroupVersion)
+		if err != nil {
+			continue
+		}
+		if excludedGroups[gv.Group] {
+			continue
+		}
 		for _, resource := range group.APIResources {
 			// Skip subresources
 			if strings.Contains(resource.Name, "/") {
+				continue
+			}
+
+			// Skip by resource-name exclusion
+			if excludedResourceNames[resource.Name] {
 				continue
 			}
 

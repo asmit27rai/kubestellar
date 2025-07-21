@@ -157,13 +157,39 @@ func (r *GenericLatencyCollectorReconciler) SetupWithManager(mgr ctrl.Manager) e
 		},
 	}
 
+	excludedGroups := map[string]bool{
+		"flowcontrol.apiserver.k8s.io": true,
+		"discovery.k8s.io":             true,
+		"apiregistration.k8s.io":       true,
+		"coordination.k8s.io":          true,
+		"control.kubestellar.io":       true,
+	}
+	excludedResourceNames := map[string]bool{
+		"events":               true,
+		"nodes":                true,
+		"csistoragecapacities": true,
+		"csinodes":             true,
+		"endpoints":            true,
+		"workstatuses":         true,
+	}
+
 	controllerBuilder := ctrl.NewControllerManagedBy(mgr).
 		Named("generic-latency-collector").
 		WithEventFilter(preds)
 
 	for _, gvk := range r.DiscoveredResources {
+		// Skip entire group
+		if excludedGroups[gvk.Group] {
+			continue
+		}
+		// Skip resource name
+		kindLower := strings.ToLower(gvk.Kind)
+		if excludedResourceNames[kindLower] {
+			continue
+		}
+		// Skip if no GVR mapping
 		if _, found := r.gvkToGVR[gvk]; !found {
-			continue // Skip if no GVR mapping
+			continue
 		}
 
 		obj := &unstructured.Unstructured{}
@@ -370,7 +396,7 @@ func (r *GenericLatencyCollectorReconciler) getGenericStatusTime(obj *unstructur
 	return latest
 }
 
-func (r *GenericLatencyCollectorReconciler) lookupManifestWorkForCluster(ctx context.Context, key string, clusterName string, entry *PerWorkloadCache) {
+func (r *GenericLatencyCollectorReconciler) lookupManifestWorkForCluster(ctx context.Context, key, clusterName string, entry *PerWorkloadCache) {
 	logger := log.FromContext(ctx).WithValues(
 		"workload", key,
 		"cluster", clusterName,
@@ -389,42 +415,31 @@ func (r *GenericLatencyCollectorReconciler) lookupManifestWorkForCluster(ctx con
 		Resource: "manifestworks",
 	}
 
-	// List ManifestWorks in the cluster namespace
-	list, err := r.ItsDynamic.Resource(gvr).Namespace(clusterName).List(ctx, metav1.ListOptions{})
+	// match on the originOwnerReferenceBindingKey label
+	labelKey := "transport.kubestellar.io/originOwnerReferenceBindingKey"
+	selector := fmt.Sprintf("%s=%s", labelKey, r.BindingName)
+	list, err := r.ItsDynamic.
+		Resource(gvr).
+		Namespace(clusterName).
+		List(ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		logger.Error(err, "Failed to list ManifestWorks in cluster namespace")
 		return
 	}
 
-	logger.Info("Processing ManifestWorks", "count", len(list.Items))
+	logger.Info("Processing ManifestWorks matching binding key", "selector", selector, "count", len(list.Items))
 	for _, mw := range list.Items {
-		manifestSlice, _, _ := unstructured.NestedSlice(mw.Object, "spec", "workload", "manifests")
-		for _, m := range manifestSlice {
-			if mMap, ok := m.(map[string]interface{}); ok {
-				kind, _, _ := unstructured.NestedString(mMap, "kind")
-				metaName, _, _ := unstructured.NestedString(mMap, "metadata", "name")
-				metaNamespace, _, _ := unstructured.NestedString(mMap, "metadata", "namespace")
-
-				// Match any kind with this name and namespace
-				if kind == entry.gvk.Kind &&
-					metaName == entry.name &&
-					metaNamespace == entry.namespace {
-
-					ts := mw.GetCreationTimestamp().Time
-					if clusterData.manifestWorkCreated.IsZero() {
-						clusterData.manifestWorkName = mw.GetName()
-						clusterData.manifestWorkCreated = ts
-						logger.Info("📦 ManifestWork creation timestamp recorded",
-							"manifestWork", mw.GetName(), "timestamp", ts, "kind", kind)
-					}
-					return
-				}
-			}
+		ts := mw.GetCreationTimestamp().Time
+		if clusterData.manifestWorkCreated.IsZero() {
+			clusterData.manifestWorkName = mw.GetName()
+			clusterData.manifestWorkCreated = ts
+			logger.Info("📦 ManifestWork creation timestamp recorded",
+				"manifestWork", mw.GetName(), "timestamp", ts)
 		}
+		return
 	}
 
-	logger.Info("No matching ManifestWork found for workload in cluster namespace",
-		"kind", entry.gvk.Kind, "name", entry.name, "namespace", entry.namespace)
+	logger.Info("No ManifestWork found with label", "label", labelKey, "value", r.BindingName)
 }
 
 func (r *GenericLatencyCollectorReconciler) lookupAppliedManifestWork(ctx context.Context, key string, clusterName string, entry *PerWorkloadCache) {
