@@ -59,6 +59,16 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 kubectl config use-context $ctx
 
 : --------------------------------------------------------------------
+: Configure latency-collector pod for prometheus scraping
+: --------------------------------------------------------------------
+
+: 1. Create latency-collector service:
+sed s/%WDS%/$wds/g ${SCRIPT_DIR}/configuration/latency-collector-svc.yaml | kubectl -n $wds-system apply -f -
+
+: 2. Create the service monitor:
+sed s/%WDS%/$wds/g ${SCRIPT_DIR}/configuration/latency-collector-sm.yaml | kubectl -n $monitoring_ns apply -f -
+
+: --------------------------------------------------------------------
 : Configure APF for prometheus traffic to the WDS API server
 : --------------------------------------------------------------------
 kubectl --context $wds apply -f ${SCRIPT_DIR}/configuration/prometheus-pod-exempt.yaml

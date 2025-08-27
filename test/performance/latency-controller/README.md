@@ -1,242 +1,198 @@
-# kubestellar-latency-collector
+# KubeStellar Latency Controller
 
-> A Kubernetes controller to measure and expose latency metrics for KubeStellar’s downsync and upsync operations.
+<p align="center">
+  <img src="images/Architecture.png" width="700" height="300" title="Latency-Controller-Architecture">
+</p>
 
----
+## Overview
 
-## 🚀 Demo Setup
+The KubeStellar Latency Controller is a comprehensive monitoring solution designed to measure and track end-to-end latencies across multi-cluster workload deployments in KubeStellar environments. It provides detailed metrics collection and observability for the complete workload deployment pipeline from Workload Definition Space (WDS) to Workload Execution Clusters (WECs).
 
-Create a KubeStellar demo environment using Kind:
+## Architecture
 
+![KubeStellar Latency Controller monitoring workflow and architecture overview][22]
+
+The Latency Controller monitors the complete workload deployment and status propagation lifecycle:
+
+1. **WDS Object Creation** → workload object created in Workload Definition Space  
+2. **Packaging** → ManifestWork creation from WDS objects  
+3. **Delivery** → ManifestWork transported to cluster namespaces  
+4. **Activation** → AppliedManifestWork created on WEC clusters  
+5. **WEC Object Creation** → actual workload objects deployed on target clusters  
+6. **Status Propagation** → status flows back from WEC to WDS via WorkStatus objects  
+
+## Features
+
+### Comprehensive Latency Metrics
+
+The controller tracks multiple stages of the deployment pipeline:
+
+- **📦 Packaging Duration**: Time from WDS object creation to ManifestWork creation  
+- **📬 Delivery Duration**: Time from ManifestWork to AppliedManifestWork creation  
+- **🏭 Activation Duration**: Time from AppliedManifestWork to WEC object creation  
+- **⚡ Total Downsync Duration**: End-to-end time from WDS to WEC object creation  
+- **📝 Status Propagation**: Time for status to flow back from WEC to WDS  
+- **🔄 End-to-End Latency**: Complete cycle from workload creation to status update  
+
+### Advanced Monitoring Capabilities
+
+- **Multi-Cluster Support**: Monitors workloads across multiple WEC clusters simultaneously  
+- **Dynamic Resource Discovery**: Automatically discovers and monitors all configured Kubernetes resource types  
+- **Real-time Metrics**: Provides live latency measurements via Prometheus metrics  
+- **Workload Count Tracking**: Monitors the number of deployed workload objects per cluster  
+- **Status Field Detection**: Intelligently handles resources with and without status fields  
+
+## Prerequisites
+
+Before deploying the Latency Controller, ensure you have:
+
+1. **KubeStellar Environment**: A working KubeStellar setup with:
+   - KubeFlex hosting cluster  
+   - Workload Definition Space (WDS)  
+   - Inventory and Transport Space (ITS)  
+   - One or more registered Workload Execution Clusters (WECs)  
+
+2. **KubeStellar Monitoring Setup**: The base monitoring infrastructure must be installed first:
+   - Setup the KS monitoring tool [Here](https://github.com/kubestellar/kubestellar/tree/main/monitoring#readme)
+   - This installs Prometheus and Grafana components
+
+## Installation
+
+### Step 1: Build and Push Controller Image
+
+Build and push the controller image to your container registry:
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/kubestellar/kubestellar/refs/tags/v0.27.2/scripts/create-kubestellar-demo-env.sh) --platform kind
+Build the controller image
+make docker-build IMAGE=<your-registry>/latency-controller:tag
+
+Push to registry
+make docker-push IMAGE=<your-registry>/latency-controller:tag
 ```
 
-Set up your environment:
+### Step 2: Deploy the Latency Controller
 
+Use the deployment script to install the controller:
 ```bash
-export host_context=kind-kubeflex
-export its_cp=its1
-export its_context=its1
-export wds_cp=wds1
-export wds_context=wds1
-export wec1_name=cluster1
-export wec2_name=cluster2
-export wec1_context=cluster1
-export wec2_context=cluster2
-export label_query_both="location-group=edge"
-export label_query_one="name=cluster1"
+./deploy-latency-controller.sh
+--latency_controller_image "<CONTROLLER_IMAGE>"
+--binding-policy "<BINDING_POLICY>"
+--monitored-namespace "<NAMESPACE_TO_MONITOR>"
+--host-context "<HOST_KUBECONFIG_CONTEXT>"
+--wds-context "<WDS_CONTEXT>"
+--its-context "<ITS_CONTEXT>"
+--wec-files "<WEC_NAME1>:<PATH_TO_KUBECONFIG1>,<WEC_NAME2>:<PATH_TO_KUBECONFIG2>"
+[--image-pull-policy "<PULL_POLICY>"]
+[--controller-verbosity "<VERBOSITY_LEVEL>"]
+[--wds-incluster-file "<PATH_TO_WDS_INCLUSTER_CONFIG>"]
+[--its-incluster-file "<PATH_TO_ITS_INCLUSTER_CONFIG>"]
 ```
 
-## 📦 Deploy Example Workloads
-
-Binding Policy
-
-```bash
-kubectl --context "$wds_context" apply -f - <<EOF
-apiVersion: control.kubestellar.io/v1alpha1
-kind: BindingPolicy
-metadata:
-  name: nginx-singleton-bpolicy
-spec:
-  clusterSelectors:
-  - matchLabels: {"name":"cluster1"}
-  downsync:
-  - objectSelectors:
-    - matchLabels: {"app.kubernetes.io/name":"nginx-singleton"}
-    wantSingletonReportedState: true
-EOF
+Check The latency controller service:
+```
+kubectl get pods -n wds1-system | grep "latency-controller"
 ```
 
-### Deployments
-
-Apply deployments to generate observable latency metrics:
-
-```bash
-# Deployment 1
-kubectl --context "$wds_context" apply -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx-singleton-deployment
-  namespace: default
-  labels:
-    app.kubernetes.io/name: nginx-singleton
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - name: nginx
-        image: nginx:alpine
-        ports:
-        - containerPort: 80
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 80
-          initialDelaySeconds: 5
-          periodSeconds: 5
-EOF
+Output:
+```
+NAME                                            READY   STATUS    RESTARTS   AGE
+latency-controller-867f84f4cf-tdl8d             1/1     Running   0          62s
 ```
 
-```bash
-# Deployment 2 (variation)
-kubectl --context "$wds_context" apply -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx-test-deployment
-  namespace: default
-  labels:
-    app.kubernetes.io/name: nginx-singleton
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - name: nginx
-        image: nginx:alpine
-        ports:
-        - containerPort: 80
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 80
-          initialDelaySeconds: 5
-          periodSeconds: 5
-EOF
-```
+### Step 3: Import KubeStellar Grafana dashboards into the Grafana UI as in Monitoring Tool:
 
-### Pods
+Import `kubestellar-dashboard.json`
 
-Apply pods to generate observable latency metrics:
+You Can See:
+<p align="center">
+  <img src="images/Grafana.png" width="500" height="250" title="KS-Latency-Controller">
+</p>
 
-```bash
-# Pod 1
-kubectl --context "$wds_context" apply -f - <<EOF
-apiVersion: v1
-kind: Pod
-metadata:
-  name: nginx-pod
-  namespace: default
-  labels:
-    app.kubernetes.io/name: nginx-singleton
-spec:
-  containers:
-  - name: nginx
-    image: nginx:alpine
-    ports:
-    - containerPort: 80
-    readinessProbe:
-      httpGet:
-        path: /
-        port: 80
-      initialDelaySeconds: 5
-      periodSeconds: 5
-EOF
-```
 
-```bash
-# Pod 2 (variation)
-kubectl --context "$wds_context" apply -f - <<EOF
-apiVersion: v1
-kind: Pod
-metadata:
-  name: nginx-pod-2
-  namespace: default
-  labels:
-    app.kubernetes.io/name: nginx-singleton
-spec:
-  containers:
-  - name: nginx
-    image: nginx:alpine
-    ports:
-    - containerPort: 80
-    readinessProbe:
-      httpGet:
-        path: /
-        port: 80
-      initialDelaySeconds: 5
-      periodSeconds: 5
-EOF
-```
+## Configuration Parameters
 
-## 🛠️ Build & Run
+| Parameter                   | Description                                                | Required | Default  |
+|-----------------------------|------------------------------------------------------------|----------|----------|
+| `--latency_controller_image`| Container image for the latency controller                 | ✅        | -        |
+| `--binding-policy`          | Name of the BindingPolicy to monitor                       | ✅        | -        |
+| `--monitored-namespace`     | Namespace to monitor for workloads                         | ✅        | -        |
+| `--host-context`            | Kubeconfig context for KubeFlex hosting cluster            | ✅        | -        |
+| `--wds-context`             | Kubeconfig context for WDS                                 | ✅        | -        |
+| `--its-context`             | Kubeconfig context for ITS                                 | ✅        | -        |
+| `--wec-files`               | Comma-separated list of WEC configs (name:path)            | ✅        | -        |
+| `--image-pull-policy`       | Image pull policy for the controller                       | ❌        | `Always` |
+| `--controller-verbosity`    | Log verbosity level (0-10)                                 | ❌        | `2`      |
+| `--wds-incluster-file`      | Path to WDS in-cluster config                              | ❌        | -        |
+| `--its-incluster-file`      | Path to ITS in-cluster config                              | ❌        | -        |
 
-Run
+## Metrics
 
-```bash
-go build -o bin/latency-controller ./test/performance/latency-controller
+The Latency Controller exposes the following Prometheus metrics:
 
-./bin/latency-controller
-```
+### Histogram Metrics
 
-## 📊 Monitoring Setup
+All histogram metrics include labels: `workload`, `cluster`, `kind`, `apiVersion`, `namespace`, `bindingpolicy`
 
-### Another Terminal (Prometheus)
+- `kubestellar_downsync_packaging_duration_seconds`  
+- `kubestellar_downsync_delivery_duration_seconds`  
+- `kubestellar_downsync_activation_duration_seconds`  
+- `kubestellar_downsync_duration_seconds`  
+- `kubestellar_statusPropagation_report_duration_seconds`  
+- `kubestellar_statusPropagation_finalization_duration_seconds`  
+- `kubestellar_statusPropagation_duration_seconds`  
+- `kubestellar_e2e_latency_duration_seconds`  
 
-```bash
-# Download and extract
-wget https://github.com/prometheus/prometheus/releases/download/v2.51.0/prometheus-2.51.0.linux-amd64.tar.gz
-tar -xzf prometheus-2.51.0.linux-amd64.tar.gz
-cd prometheus-2.51.0.linux-amd64
-```
+### Gauge Metrics
 
-Create `prometheus.yml`:
+- `kubestellar_workload_count`  
+  - Labels: `cluster`, `kind`, `apiVersion`, `namespace`, `bindingpolicy`
 
-```bash
-global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+## Grafana Dashboard
 
-scrape_configs:
-  - job_name: 'kubestellar-latency'
-    static_configs:
-      - targets: ['localhost:2222']
-    metrics_path: '/metrics'
-```
+After deploying the Latency Controller, import the provided Grafana dashboard to visualize the metrics:
 
-Run Prometheus:
+1. **Access Grafana**: Connect to your Grafana instance (deployed via KS monitoring setup)  
+2. **Import Dashboard**: Use the provided dashboard JSON configuration  
+3. **Configure Data Source**: Ensure Prometheus is configured as a data source  
+4. **View Metrics**: Monitor latency patterns, identify bottlenecks, and track performance trends  
 
-```bash
-./prometheus \
-  --config.file=prometheus.yml \
-  --storage.tsdb.path=./data \
-  --web.listen-address=0.0.0.0:9090
-```
+## How It Works
 
-### Again In Another Terminal (Grafana)
+### Controller Architecture
 
-```bash
-# Download and extract
-wget https://dl.grafana.com/oss/release/grafana-10.4.1.linux-amd64.tar.gz
-tar -xzf grafana-10.4.1.linux-amd64.tar.gz
-cd grafana-10.4.1
-```
+The Latency Controller implements a sophisticated monitoring system:
 
-Start Grafana
+1. **Dynamic Resource Discovery**  
+2. **Event-Driven Processing**  
+3. **Multi-Cluster Coordination**  
+4. **Intelligent Caching**  
+5. **Prometheus Integration**  
 
-```bash
-./bin/grafana-server web
-```
+## 📊 Monitoring Workflow
 
-Access Grafana at http://localhost:3000
-(Default credentials: admin / admin)
+The following steps describe the end-to-end workflow of object creation, delivery, and status propagation:
 
-## Import Dashboard
+1. **WDS Object Created**
+   - Initial object is created in the WDS cluster.
 
-- Navigate to Dashboards > Import
-- Upload the file: ./kubestellar-dashboard.json
+2. **📦 Packaging → ManifestWork Created (ITS)**
+   - The workload is packaged into a `ManifestWork` object in the ITS cluster.
+
+3. **📬 Delivery → AppliedManifestWork Created (WEC)**
+   - The packaged work is delivered, resulting in an `AppliedManifestWork` in the WEC cluster.
+
+4. **🏭 Activation → Workload Object Created (WEC)**
+   - The workload object (e.g., Deployment, Service) is created in the WEC cluster.
+
+5. **📝 Status Collection → WorkStatus Created (ITS)**
+   - The WEC cluster reports status back to the ITS cluster through a `WorkStatus` object.
+
+6. **✅ Status Propagation → WDS Object Status Updated**
+   - The collected status is propagated back and reflected in the original WDS object.
+
+### Resource Type Support
+
+The controller automatically handles different Kubernetes resource types:
+
+- **Stateful Resources**: Deployments, StatefulSets, DaemonSets, Pods, Services, etc.  
+- **Stateless Resources**: ConfigMaps, Secrets, ServiceAccounts, RBAC objects, etc.  
+- **Custom Resources**: Any CRDs deployed in your clusters  
