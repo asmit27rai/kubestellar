@@ -44,6 +44,7 @@ The following steps describe the end-to-end workflow of object creation, deliver
 
 - **Multi-Cluster Support**: Monitors workloads across multiple WEC clusters simultaneously  
 - **Dynamic Resource Discovery**: Automatically discovers and monitors all configured Kubernetes resource types  
+ > **Note:** Currently, only **namespaced-scope resources** are supported. Cluster-scoped resources are not covered by this controller.
 - **Real-time Metrics**: Provides live latency measurements via Prometheus metrics  
 - **Workload Count Tracking**: Monitors the number of deployed workload objects per cluster  
 - **Status Field Detection**: Intelligently handles resources with and without status fields  
@@ -67,11 +68,14 @@ make docker-push IMAGE=<your-registry>/latency-controller:tag
 The latency-collector resources need to be applied in the **namespace associated with the WDS space** where the KubeStellar controller will be deployed.  
 For example, if your WDS space is `wds1`, then the namespace will be `wds1-system`.
 ```bash
+export 
+WDS="wds1"
+
 # 1. Create latency-collector service
-sed s/%WDS%/wds1/g configuration/latency-collector-svc.yaml | kubectl -n wds1-system apply -f -
+sed s/%WDS%/$WDS/g configuration/latency-collector-svc.yaml | kubectl -n WDS$-system apply -f -
 
 # 2. Create latency-collector service monitor
-sed s/%WDS%/wds1/g configuration/latency-collector-sm.yaml | kubectl -n ks-monitoring apply -f -
+sed s/%WDS%/WDS/g configuration/latency-collector-sm.yaml | kubectl -n ks-monitoring apply -f -
 ```
 ✅ This way it’s clear that:
 - The **service** goes into `<wds-space>-system` (e.g., `wds1-system`).  
@@ -129,9 +133,7 @@ latency-controller-867f84f4cf-tdl8d             1/1     Running   0          62s
 After deploying the Latency Controller, import the provided Grafana dashboard to visualize the metrics:
 
 1. **Access Grafana**: Connect to your Grafana instance (deployed via KS monitoring setup)  
-2. **Import Dashboard**: Use the provided dashboard JSON configuration  
-3. **Configure Data Source**: Ensure Prometheus is configured as a data source  
-4. **View Metrics**: Monitor latency patterns, identify bottlenecks, and track performance trends 
+2. **Import Dashboard**: Use the provided dashboard JSON configuration   
 
 <p align="center">
   <img src="images/Grafana.png" width="800" height="400" title="KS-Latency-Controller">
@@ -152,8 +154,3 @@ The Latency Controller exposes the following Prometheus metrics:
 - **kubestellar_workload_count**: Number of workload objects deployed in clusters   
 
 All histogram metrics include labels: `workload`, `cluster`, `kind`, `apiVersion`, `namespace`, `bindingpolicy` 
-
-### Gauge Metrics
-
-- `kubestellar_workload_count`  
-  - Labels: `cluster`, `kind`, `apiVersion`, `namespace`, `bindingName` 
