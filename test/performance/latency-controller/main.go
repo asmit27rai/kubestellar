@@ -40,7 +40,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/kubestellar/kubestellar/test/performance/latency-controller/internal/controller"
+	"github.com/kubestellar/kubestellar/internal/controller"
 )
 
 var (
@@ -91,7 +91,7 @@ func main() {
 		itsKubeconfigPath  string
 		wecKubeconfigPaths string
 		monitoredNamespace string
-		bindingPolicy      string
+		bindingName        string
 		excludedResources  string
 		includedGroups     string
 	)
@@ -105,7 +105,7 @@ func main() {
 	pflag.StringVar(&itsKubeconfigPath, "its-kubeconfig", "", "Path to ITS kubeconfig (empty = detect automatically)")
 	pflag.StringVar(&wecKubeconfigPaths, "wec-kubeconfigs", "", "Comma-separated paths to WEC kubeconfigs")
 	pflag.StringVar(&monitoredNamespace, "monitored-namespace", "default", "Namespace to monitor")
-	pflag.StringVar(&bindingPolicy, "binding-name", "nginx-singleton-bpolicy", "Binding policy name")
+	pflag.StringVar(&bindingName, "binding-name", "nginx-singleton-bpolicy", "Binding policy name")
 	pflag.StringVar(&excludedResources, "excluded-resources", "events,nodes,componentstatuses,endpoints,persistentvolumes,clusterroles,clusterrolebindings", "Resources to exclude")
 	pflag.StringVar(&includedGroups, "included-groups", "", "API groups to include (empty=all)")
 
@@ -196,7 +196,7 @@ func main() {
 		ItsDynamic:          itsDynamic,
 		WecDynamics:         wecDynamics,
 		MonitoredNamespace:  monitoredNamespace,
-		BindingPolicy:       bindingPolicy,
+		BindingName:         bindingName,
 		DiscoveredResources: discovered,
 	}
 	r.RegisterMetrics()

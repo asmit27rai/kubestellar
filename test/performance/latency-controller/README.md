@@ -75,7 +75,7 @@ Use the deployment script to install the controller:
 ```bash
 ./deploy-latency-controller.sh
 --latency_controller_image "<CONTROLLER_IMAGE>"
---binding-policy "<BINDING_POLICY>"
+--binding-name "<BINDING_NAME>"
 --monitored-namespace "<NAMESPACE_TO_MONITOR>"
 --host-context "<HOST_KUBECONFIG_CONTEXT>"
 --wds-context "<WDS_CONTEXT>"

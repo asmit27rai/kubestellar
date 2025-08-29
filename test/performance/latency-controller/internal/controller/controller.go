@@ -80,7 +80,7 @@ type GenericLatencyCollectorReconciler struct {
 
 	// Configuration
 	MonitoredNamespace  string
-	BindingPolicy       string
+	BindingName       string
 	DiscoveredResources []schema.GroupVersionKind
 	gvkToGVR            map[schema.GroupVersionKind]schema.GroupVersionResource
 	bindingCreated      time.Time
@@ -180,54 +180,54 @@ func (r *GenericLatencyCollectorReconciler) RegisterMetrics() {
 		Name:    "kubestellar_downsync_packaging_duration_seconds",
 		Help:    "Histogram of WDS object → ManifestWork creation durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingpolicy"})
+	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingName"})
 
 	r.totalDeliveryHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_downsync_delivery_duration_seconds",
 		Help:    "Histogram of ManifestWork → AppliedManifestWork creation durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingpolicy"})
+	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingName"})
 
 	r.totalActivationHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_downsync_activation_duration_seconds",
 		Help:    "Histogram of AppliedManifestWork → WEC object creation durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingpolicy"})
+	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingName"})
 
 	r.totalDownsyncHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_downsync_duration_seconds",
 		Help:    "Histogram of WDS object → WEC object creation durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingpolicy"})
+	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingName"})
 
 	r.totalStatusPropagationReportHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_statusPropagation_report_duration_seconds",
 		Help:    "Histogram of WEC object → WorkStatus report durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingpolicy"})
+	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingName"})
 
 	r.totalStatusPropagationFinalHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_statusPropagation_finalization_duration_seconds",
 		Help:    "Histogram of WorkStatus → WDS object status durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingpolicy"})
+	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingName"})
 
 	r.totalStatusPropagationHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_statusPropagation_duration_seconds",
 		Help:    "Histogram of WEC object → WDS object status durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingpolicy"})
+	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingName"})
 
 	r.totalE2EHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kubestellar_e2e_latency_duration_seconds",
 		Help:    "Histogram of total binding → WDS status durations",
 		Buckets: prometheus.ExponentialBuckets(0.1, 2, 15),
-	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingpolicy"})
+	}, []string{"workload", "cluster", "kind", "apiVersion", "namespace", "bindingName"})
 
 	r.workloadCountGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "kubestellar_workload_count",
 		Help: "Number of workload objects deployed in clusters",
-	}, []string{"cluster", "kind", "apiVersion", "namespace", "bindingpolicy"})
+	}, []string{"cluster", "kind", "apiVersion", "namespace", "bindingName"})
 
 	metrics.Registry.MustRegister(
 		r.totalPackagingHistogram,
@@ -301,7 +301,7 @@ func (r *GenericLatencyCollectorReconciler) lookupManifestWorkForCluster(ctx con
 	}
 
 	gvr := schema.GroupVersionResource{Group: "work.open-cluster-management.io", Version: "v1", Resource: "manifestworks"}
-	selector := fmt.Sprintf("transport.kubestellar.io/originOwnerReferenceBindingKey=%s", r.BindingPolicy)
+	selector := fmt.Sprintf("transport.kubestellar.io/originOwnerReferenceBindingKey=%s", r.BindingName)
 	list, err := r.ItsDynamic.Resource(gvr).Namespace(clusterName).List(ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		logger.Error(err, "Failed to list ManifestWorks in cluster namespace")
@@ -590,7 +590,7 @@ func (r *GenericLatencyCollectorReconciler) processClusters(ctx context.Context,
 		"kind":          entry.gvk.Kind,
 		"apiVersion":    apiVersion,
 		"namespace":     entry.namespace,
-		"bindingpolicy": r.BindingPolicy,
+		"bindingName": r.BindingName,
 	}
 
 	for clusterName := range r.WecClients {
@@ -680,7 +680,7 @@ func (r *GenericLatencyCollectorReconciler) processClusters(ctx context.Context,
 				entry.gvk.Kind,
 				entry.gvk.GroupVersion().String(),
 				entry.namespace,
-				r.BindingPolicy,
+				r.BindingName,
 			}
 			if list, err := dynClient.Resource(entry.gvr).Namespace(r.MonitoredNamespace).List(ctx, metav1.ListOptions{}); err == nil {
 				r.workloadCountGauge.WithLabelValues(labels...).Set(float64(len(list.Items)))
