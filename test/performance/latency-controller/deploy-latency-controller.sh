@@ -97,6 +97,16 @@ function extract_context_name_from_kubeconfig() {
   echo "$context_name"
 }
 
+# Helper: fetch kubeconfig from ControlPlane secret
+function get_cp_kubeconfig() {
+  local cpname="$1" outfile="$2"
+  local key secret_name secret_namespace
+  key=$(kubectl get controlplane "$cpname" -o=jsonpath='{.status.secretRef.inClusterKey}')
+  secret_name=$(kubectl get controlplane "$cpname" -o=jsonpath='{.status.secretRef.name}')
+  secret_namespace=$(kubectl get controlplane "$cpname" -o=jsonpath='{.status.secretRef.namespace}')
+  kubectl -n "$secret_namespace" get secret "$secret_name" -o=jsonpath="{.data.$key}" | base64 -d > "$outfile"
+}
+
 # Helper function to extract context name from ControlPlane
 function extract_context_name_from_controlplane() {
   local cpname="$1"
@@ -105,17 +115,10 @@ function extract_context_name_from_controlplane() {
     echo "ERROR: ControlPlane '$cpname' not found in current context ($HOST_CTX)." >&2
     exit 5
   fi
-  local key secret_name secret_namespace tmpf context_name
-  key=$(kubectl get controlplane "$cpname" -o=jsonpath='{.status.secretRef.inClusterKey}' 2>/dev/null || true)
-  if [[ -z "$key" ]]; then
-    echo "ERROR: Unable to determine '.status.secretRef.inClusterKey' for ControlPlane $cpname" >&2
-    exit 6
-  fi
-  secret_name=$(kubectl get controlplane "$cpname" -o=jsonpath='{.status.secretRef.name}')
-  secret_namespace=$(kubectl get controlplane "$cpname" -o=jsonpath='{.status.secretRef.namespace}')
+  local tmpf context_name
   tmpf=$(mktemp /tmp/${cpname}.kubeconfig.XXXX)
   trap '[[ -f "$tmpf" ]] && rm -f "$tmpf"' RETURN
-  kubectl -n "$secret_namespace" get secret "$secret_name" -o=jsonpath="{.data.$key}" | base64 -d > "$tmpf"
+  get_cp_kubeconfig "$cpname" "$tmpf"
   context_name=$(extract_context_name_from_kubeconfig "$tmpf")
   rm -f "$tmpf" || true
   trap - RETURN
@@ -153,13 +156,10 @@ function apply_secret() {
 
 function extract_cp_incluster_secret() {
   local cpname="$1" target_secret="$2"
-  local key secret_name secret_namespace tmpf
-  key=$(kubectl get controlplane "$cpname" -o=jsonpath='{.status.secretRef.inClusterKey}')
-  secret_name=$(kubectl get controlplane "$cpname" -o=jsonpath='{.status.secretRef.name}')
-  secret_namespace=$(kubectl get controlplane "$cpname" -o=jsonpath='{.status.secretRef.namespace}')
+  local tmpf
   tmpf=$(mktemp /tmp/${target_secret}.kubeconfig.XXXX)
   trap '[[ -f "$tmpf" ]] && rm -f "$tmpf"' RETURN
-  kubectl -n "$secret_namespace" get secret "$secret_name" -o=jsonpath="{.data.$key}" | base64 -d > "$tmpf"
+  get_cp_kubeconfig "$cpname" "$tmpf"
   apply_secret "$target_secret" "$tmpf"
   rm -f "$tmpf" || true
   trap - RETURN
