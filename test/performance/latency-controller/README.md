@@ -89,7 +89,7 @@ sed s/%WDS%/WDS/g configuration/latency-collector-sm.yaml | kubectl -n ks-monito
 
 ### Step 3: Deploy the Latency Controller
 
-1. Use the deployment script to install the controller:
+Use the deployment script to install the controller:
 ```bash
 ./deploy-latency-controller.sh
 --latency_controller_image "<CONTROLLER_IMAGE>"
@@ -132,14 +132,12 @@ NAME                                            READY   STATUS    RESTARTS   AGE
 latency-controller-867f84f4cf-tdl8d             1/1     Running   0          62s
 ```
 
-2. **Access Grafana**:  Import the Grafana dashboard `kubestellar-dashboard.json` into the Grafana UI deployed via KS monitoring setup. 
-
 ### Step 3: Import KubeStellar Grafana dashboards into the Grafana UI as in Monitoring Tool:
 
 After deploying the Latency Controller, import the provided Grafana dashboard to visualize the metrics:
 
 1. **Access Grafana**: Connect to your Grafana instance (deployed via KS monitoring setup)  
-2. **Import Dashboard**: Use the provided dashboard JSON configuration   
+2. **Import Dashboard**: Import the Grafana dashboard `kubestellar-dashboard.json` into the Grafana UI deployed via KS monitoring setup  
 
 <p align="center">
   <img src="images/Grafana.png" width="800" height="400" title="KS-Latency-Controller">
