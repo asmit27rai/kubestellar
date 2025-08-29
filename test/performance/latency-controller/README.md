@@ -10,9 +10,7 @@ Before deploying the Latency Controller, ensure you have:
 
 1. **KubeStellar Environment**: You must have an environment with KubeStellar installed; see [KubeStellar getting started](https://docs.kubestellar.io/release-0.23.1/direct/get-started/). Alternatively, you can also use KubeStellar e2e script [run-test.sh](https://github.com/kubestellar/kubestellar/blob/main/test/e2e/run-test.sh) to setup an environment.
 
-2. **KubeStellar Monitoring Setup**: The base monitoring infrastructure must be installed first:
-   - Setup the KS monitoring tool [Here](https://github.com/kubestellar/kubestellar/tree/main/monitoring#readme)
-   - This installs Prometheus and Grafana components
+2. **KubeStellar Monitoring Setup**: setup the KubeStellar monitoring stack using the instructions [Here](https://github.com/kubestellar/kubestellar/tree/main/monitoring#readme)
 
 ## Overview
 
@@ -32,10 +30,10 @@ The following steps describe the end-to-end workflow of object creation, deliver
 4. **🏭 Activation → Workload Object Created (WEC)**
    - The workload object (e.g., Deployment, Service) is created in the WEC cluster.
 
-5. **📝 Status Collection → WorkStatus Created (ITS)**
+5. **📝 Status Report → WorkStatus Created (ITS)**
    - The WEC cluster reports status back to the ITS cluster through a `WorkStatus` object.
 
-6. **✅ Status Propagation → WDS Object Status Updated**
+6. **✅ Status Finalization → WDS Object Status Updated**
    - The collected status is propagated back and reflected in the original WDS object.
 
 ## Features
@@ -43,8 +41,7 @@ The following steps describe the end-to-end workflow of object creation, deliver
 ### Advanced Monitoring Capabilities
 
 - **Multi-Cluster Support**: Monitors workloads across multiple WEC clusters simultaneously  
-- **Dynamic Resource Discovery**: Automatically discovers and monitors all configured Kubernetes resource types  
- > **Note:** Currently, only **namespaced-scope resources** are supported. Cluster-scoped resources are not covered by this controller.
+- **Dynamic Resource Discovery**: Automatically discovers and monitors all Kubernetes namespaced resources
 - **Real-time Metrics**: Provides live latency measurements via Prometheus metrics  
 - **Workload Count Tracking**: Monitors the number of deployed workload objects per cluster  
 - **Status Field Detection**: Intelligently handles resources with and without status fields  
@@ -53,28 +50,37 @@ The following steps describe the end-to-end workflow of object creation, deliver
 
 ### Step 1: Build and Push Controller Image
 
-Build and push the controller image to your container registry:
-```bash
-Build the controller image
-make docker-copy
-make docker-build IMAGE=<your-registry>/latency-controller:tag
+Build and push your image to the location specified by `IMAGE` var:
 
-Push to registry
-make docker-push IMAGE=<your-registry>/latency-controller:tag
+a) First set your image:
+```bash
+IMAGE=<your-registry>/latency-controller:tag
+```
+
+b)
+```bash
+make docker-copy
+make docker-build $IMAGE
+make docker-push $IMAGE
 ```
 
 ### Step 2: Configure Latency Controller
 
 The latency-collector resources need to be applied in the **namespace associated with the WDS space** where the KubeStellar controller will be deployed.  
 For example, if your WDS space is `wds1`, then the namespace will be `wds1-system`.
+
+a) Set `WDS` var with the name of your WDS space:
 ```bash
-export 
 WDS="wds1"
+```
 
-# 1. Create latency-collector service
+b) Create latency-collector service
+```bash
 sed s/%WDS%/$WDS/g configuration/latency-collector-svc.yaml | kubectl -n WDS$-system apply -f -
+```
 
-# 2. Create latency-collector service monitor
+c) Create latency-collector service monitor
+```bash
 sed s/%WDS%/WDS/g configuration/latency-collector-sm.yaml | kubectl -n ks-monitoring apply -f -
 ```
 ✅ This way it’s clear that:
@@ -87,7 +93,7 @@ sed s/%WDS%/WDS/g configuration/latency-collector-sm.yaml | kubectl -n ks-monito
 ```bash
 ./deploy-latency-controller.sh
 --latency_controller_image "<CONTROLLER_IMAGE>"
---binding-policy-name "<BINDING_Policy_NAME>"
+--binding-policy-name "<BINDING_POLICY_NAME>"
 --monitored-namespace "<NAMESPACE_TO_MONITOR>"
 --host-context "<HOST_KUBECONFIG_CONTEXT>"
 --wds-context "<WDS_CONTEXT>"
