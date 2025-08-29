@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # Copyright 2023 The KubeStellar Authors.
 
@@ -20,7 +20,7 @@ function usage() {
   cat <<EOF
 Usage: $0 \
   --latency_controller_image <container image for latency controller> \
-  --bindingName             <cluster binding name used by controller> \
+  --binding-policy-name           <cluster binding name used by controller> \
   --monitored-namespace     <namespace the controller will monitor> \
   --host-context            <kubeconfig context of host/WDS cluster> \
   --wds-context             <ControlPlane context name for WDS extraction> \
@@ -43,7 +43,7 @@ EOF
 }
 
 # --- Parse args ---
-LATENCY_IMAGE="" BINDING_NAME="" MONITORED_NS=""
+LATENCY_IMAGE="" BINDING_POLICY_NAME="" MONITORED_NS=""
 HOST_CTX="" WDS_CONTEXT="" ITS_CONTEXT=""
 WDS_IN_FILE="" ITS_IN_FILE=""
 WEC_FILES=""
@@ -52,7 +52,7 @@ IMAGE_PULL_POLICY="" CONTROLLER_VERBOSITY=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --latency_controller_image) LATENCY_IMAGE="$2"; shift;;
-    --binding-name)             BINDING_NAME="$2"; shift;;
+    --binding-policy-name)      BINDING_POLICY_NAME="$2"; shift;;
     --monitored-namespace)      MONITORED_NS="$2"; shift;;
     --host-context)             HOST_CTX="$2"; shift;;
     --wds-context)              WDS_CONTEXT="$2"; shift;;
@@ -69,7 +69,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Required checks
-if [[ -z "$LATENCY_IMAGE" || -z "$BINDING_NAME" || -z "$MONITORED_NS" || -z "$HOST_CTX" || -z "$WDS_CONTEXT" || -z "$ITS_CONTEXT" || -z "$WEC_FILES" ]]; then
+if [[ -z "$LATENCY_IMAGE" || -z "$BINDING_POLICY_NAME" || -z "$MONITORED_NS" || -z "$HOST_CTX" || -z "$WDS_CONTEXT" || -z "$ITS_CONTEXT" || -z "$WEC_FILES" ]]; then
   echo "ERROR: Missing required argument."
   usage
 fi
@@ -267,7 +267,7 @@ $( if [[ -n "${WECS_CONTEXTS_CSV}" ]]; then echo "          - \"--wec-contexts=$
           - "--wds-kubeconfig=/etc/kubeconfigs/${WDS_NAME}-incluster.kubeconfig"
           - "--its-kubeconfig=/etc/kubeconfigs/${ITS_NAME}-incluster.kubeconfig"
 $( if [[ -n "${WECS_KUBECONFIGS_CSV}" ]]; then echo "          - \"--wec-kubeconfigs=${WECS_KUBECONFIGS_CSV}\""; fi )
-          - "--binding-name=${BINDING_NAME}"
+          - "--binding-policy-name=${BINDING_POLICY_NAME}"
           - "--monitored-namespace=${MONITORED_NS}"
         env:
           - name: KUBECONFIG
