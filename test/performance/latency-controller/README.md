@@ -4,11 +4,19 @@
   <img src="images/Diagram.png" width="700" height="300" title="Benchmarking of KubeStellar  Data-Plane ">
 </p>
 
+## Prerequisites
+
+Before deploying the Latency Controller, ensure you have:
+
+1. **KubeStellar Environment**: You must have an environment with KubeStellar installed; see [KubeStellar getting started](https://docs.kubestellar.io/release-0.23.1/direct/get-started/). Alternatively, you can also use KubeStellar e2e script [run-test.sh](https://github.com/kubestellar/kubestellar/blob/main/test/e2e/run-test.sh) to setup an environment.
+
+2. **KubeStellar Monitoring Setup**: The base monitoring infrastructure must be installed first:
+   - Setup the KS monitoring tool [Here](https://github.com/kubestellar/kubestellar/tree/main/monitoring#readme)
+   - This installs Prometheus and Grafana components
+
 ## Overview
 
-The KubeStellar Latency Controller is a comprehensive monitoring solution designed to measure and track end-to-end latencies across multi-cluster workload deployments in KubeStellar environments. It provides detailed metrics collection and observability for the complete workload deployment pipeline from Workload Definition Space (WDS) to Workload Execution Clusters (WECs).
-
-## Architecture
+This framework provides a comprehensive monitoring solution designed to measure all data plane latencies across multi-cluster workload deployments in KubeStellar environments. The main component of this system is a KubeStellar latency controller that provides detailed metrics collection and observability (in combination of the Kubestellar monitoring tools) for the life-cycle of workload deployed via KubeStellar: from the workload deployment in a Workload Definition Space (WDS) to its execution in a Workload Execution Clusters (WECs).
 
 The following steps describe the end-to-end workflow of object creation, delivery, and status propagation:
 
@@ -32,17 +40,6 @@ The following steps describe the end-to-end workflow of object creation, deliver
 
 ## Features
 
-### Comprehensive Latency Metrics
-
-The controller tracks multiple stages of the deployment pipeline:
-
-- **📦 Packaging Duration**: Time from WDS object creation to ManifestWork creation  
-- **📬 Delivery Duration**: Time from ManifestWork to AppliedManifestWork creation  
-- **🏭 Activation Duration**: Time from AppliedManifestWork to WEC object creation  
-- **⚡ Total Downsync Duration**: End-to-end time from WDS to WEC object creation  
-- **📝 Status Propagation**: Time for status to flow back from WEC to WDS  
-- **🔄 End-to-End Latency**: Complete cycle from workload creation to status update  
-
 ### Advanced Monitoring Capabilities
 
 - **Multi-Cluster Support**: Monitors workloads across multiple WEC clusters simultaneously  
@@ -50,16 +47,6 @@ The controller tracks multiple stages of the deployment pipeline:
 - **Real-time Metrics**: Provides live latency measurements via Prometheus metrics  
 - **Workload Count Tracking**: Monitors the number of deployed workload objects per cluster  
 - **Status Field Detection**: Intelligently handles resources with and without status fields  
-
-## Prerequisites
-
-Before deploying the Latency Controller, ensure you have:
-
-1. **KubeStellar Environment**: You must have an environment with KubeStellar installed; see [KubeStellar getting started](https://docs.kubestellar.io/release-0.23.1/direct/get-started/). Alternatively, you can also use KubeStellar e2e script [run-test.sh](https://github.com/kubestellar/kubestellar/blob/main/test/e2e/run-test.sh) to setup an environment.
-
-2. **KubeStellar Monitoring Setup**: The base monitoring infrastructure must be installed first:
-   - Setup the KS monitoring tool [Here](https://github.com/kubestellar/kubestellar/tree/main/monitoring#readme)
-   - This installs Prometheus and Grafana components
 
 ## Installation
 
@@ -76,6 +63,9 @@ make docker-push IMAGE=<your-registry>/latency-controller:tag
 ```
 
 ### Step 2: Configure Latency Controller
+
+The latency-collector resources need to be applied in the **namespace associated with the WDS space** where the KubeStellar controller will be deployed.  
+For example, if your WDS space is `wds1`, then the namespace will be `wds1-system`.
 ```bash
 # 1. Create latency-collector service
 sed s/%WDS%/wds1/g configuration/latency-collector-svc.yaml | kubectl -n wds1-system apply -f -
@@ -83,10 +73,13 @@ sed s/%WDS%/wds1/g configuration/latency-collector-svc.yaml | kubectl -n wds1-sy
 # 2. Create latency-collector service monitor
 sed s/%WDS%/wds1/g configuration/latency-collector-sm.yaml | kubectl -n ks-monitoring apply -f -
 ```
+✅ This way it’s clear that:
+- The **service** goes into `<wds-space>-system` (e.g., `wds1-system`).  
+- The **service monitor** goes into the monitoring namespace (`ks-monitoring`).
 
 ### Step 3: Deploy the Latency Controller
 
-Use the deployment script to install the controller:
+1. Use the deployment script to install the controller:
 ```bash
 ./deploy-latency-controller.sh
 --latency_controller_image "<CONTROLLER_IMAGE>"
@@ -129,9 +122,9 @@ NAME                                            READY   STATUS    RESTARTS   AGE
 latency-controller-867f84f4cf-tdl8d             1/1     Running   0          62s
 ```
 
-### Step 3: Import KubeStellar Grafana dashboards into the Grafana UI as in Monitoring Tool:
+2. **Access Grafana**:  Import the Grafana dashboard `kubestellar-dashboard.json` into the Grafana UI deployed via KS monitoring setup. 
 
-Grafana Dashboard
+### Step 3: Import KubeStellar Grafana dashboards into the Grafana UI as in Monitoring Tool:
 
 After deploying the Latency Controller, import the provided Grafana dashboard to visualize the metrics:
 
@@ -140,9 +133,6 @@ After deploying the Latency Controller, import the provided Grafana dashboard to
 3. **Configure Data Source**: Ensure Prometheus is configured as a data source  
 4. **View Metrics**: Monitor latency patterns, identify bottlenecks, and track performance trends 
 
-Import `kubestellar-dashboard.json`
-
-You Can See:
 <p align="center">
   <img src="images/Grafana.png" width="800" height="400" title="KS-Latency-Controller">
 </p>
@@ -151,25 +141,17 @@ You Can See:
 
 The Latency Controller exposes the following Prometheus metrics:
 
-- **📦 Packaging Duration**: Time from WDS object creation to ManifestWork creation  
-- **📬 Delivery Duration**: Time from ManifestWork to AppliedManifestWork creation  
-- **🏭 Activation Duration**: Time from AppliedManifestWork to WEC object creation  
-- **⚡ Total Downsync Duration**: End-to-end time from WDS to WEC object creation  
-- **📝 Status Propagation**: Time for status to flow back from WEC to WDS  
-- **🔄 End-to-End Latency**: Complete cycle from workload creation to status update  
+- **kubestellar_downsync_packaging_duration_seconds**: Time from WDS object creation to ManifestWork creation  
+- **kubestellar_downsync_delivery_duration_seconds**: Time from ManifestWork to AppliedManifestWork creation  
+- **kubestellar_downsync_activation_duration_seconds**: Time from AppliedManifestWork to WEC object creation  
+- **kubestellar_downsync_duration_seconds**: End-to-end time from WDS to WEC object creation  
+- **kubestellar_statusPropagation_report_duration_seconds**: Time for status to flow back from WEC to Workstatus status 
+- **kubestellar_statusPropagation_finalization_duration_seconds**: Time for status to flow back from Workstatus to WDS  
+- **kubestellar_statusPropagation_duration_seconds** Total time for status to flow back from WEC to WDS sttus updation
+- **kubestellar_e2e_latency_duration_seconds**: Complete cycle from workload creation to status update 
+- **kubestellar_workload_count**: Number of workload objects deployed in clusters   
 
-### Histogram Metrics
-
-All histogram metrics include labels: `workload`, `cluster`, `kind`, `apiVersion`, `namespace`, `bindingpolicy`
-
-- `kubestellar_downsync_packaging_duration_seconds`  
-- `kubestellar_downsync_delivery_duration_seconds`  
-- `kubestellar_downsync_activation_duration_seconds`  
-- `kubestellar_downsync_duration_seconds`  
-- `kubestellar_statusPropagation_report_duration_seconds`  
-- `kubestellar_statusPropagation_finalization_duration_seconds`  
-- `kubestellar_statusPropagation_duration_seconds`  
-- `kubestellar_e2e_latency_duration_seconds`  
+All histogram metrics include labels: `workload`, `cluster`, `kind`, `apiVersion`, `namespace`, `bindingpolicy` 
 
 ### Gauge Metrics
 
