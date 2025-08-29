@@ -91,7 +91,7 @@ func main() {
 		itsKubeconfigPath  string
 		wecKubeconfigPaths string
 		monitoredNamespace string
-		bindingPolicyname        string
+		bindingPolicyname  string
 		excludedResources  string
 		includedGroups     string
 	)

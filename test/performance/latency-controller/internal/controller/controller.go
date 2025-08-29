@@ -80,7 +80,7 @@ type GenericLatencyCollectorReconciler struct {
 
 	// Configuration
 	MonitoredNamespace  string
-	BindingPolicyName         string
+	BindingPolicyName   string
 	DiscoveredResources []schema.GroupVersionKind
 	gvkToGVR            map[schema.GroupVersionKind]schema.GroupVersionResource
 	bindingCreated      time.Time
@@ -585,11 +585,11 @@ func (r *GenericLatencyCollectorReconciler) processClusters(ctx context.Context,
 
 	apiVersion := entry.gvk.GroupVersion().String()
 	labels := prometheus.Labels{
-		"workload":    entry.name,
-		"cluster":     "",
-		"kind":        entry.gvk.Kind,
-		"apiVersion":  apiVersion,
-		"namespace":   entry.namespace,
+		"workload":          entry.name,
+		"cluster":           "",
+		"kind":              entry.gvk.Kind,
+		"apiVersion":        apiVersion,
+		"namespace":         entry.namespace,
 		"bindingPolicyname": r.BindingPolicyName,
 	}
 
