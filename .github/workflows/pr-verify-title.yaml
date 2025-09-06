@@ -1,0 +1,46 @@
+name: "PR Title Verifier"
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+
+      - name: Validate PR Title Format
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          # Safely access the PR title
+          if [ -z "${TITLE}" ]; then
+            echo "❌ Error: PR title cannot be empty."
+            exit 1
+          fi
+
+          # Define allowed emoji prefixes using a safe regular expression match
+          if ! printf '%s' "$TITLE" | grep -qE '^(⚠|✨|🐛|📖|🚀|🌱)'; then
+            printf "❌ required indicator not found at the start of title: %q\n" "$TITLE"
+            echo "Your PR title must start with one of the following special characters:"
+            echo "⚠ (indicates Breaking change)"
+            echo "✨ (indicates Non-breaking feature)"
+            echo "🐛 (indicates Patch fix)"
+            echo "📖 (indicates Documentation)"
+            echo "🚀 (indicates Release)"
+            echo "🌱 (indicates Infra/Tests/Other)"
+            echo -n "Your title's first character is, in hex: "
+            python3 -c "import os; print('%x' % ord(os.environ['TITLE'][0]))"
+            exit 1
+          fi
+
+          # Safely print the title without allowing code execution
+          printf "✅ PR title is valid: '%q'\n" "$TITLE"

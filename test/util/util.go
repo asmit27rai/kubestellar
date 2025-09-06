@@ -17,7 +17,6 @@ limitations under the License.
 package util
 
 import (
-	"bytes"
 	"context"
 	goerrors "errors"
 	"fmt"
@@ -112,21 +111,15 @@ func CreateNS(ctx context.Context, client *kubernetes.Clientset, name string) {
 
 func Cleanup(ctx context.Context) {
 	ginkgo.GinkgoHelper()
-	var e, o bytes.Buffer
 	cmd := exec.CommandContext(ctx, "../common/cleanup.sh")
-	cmd.Stderr = &e
-	cmd.Stdout = &o
+	cmd.Stderr = ginkgo.GinkgoWriter
+	cmd.Stdout = ginkgo.GinkgoWriter
 	err := cmd.Run()
-	if err != nil {
-		fmt.Fprintf(ginkgo.GinkgoWriter, "%s", o.String())
-		fmt.Fprintf(ginkgo.GinkgoWriter, "%s", e.String())
-	}
 	gomega.Expect(err).To(gomega.Succeed())
 }
 
 func SetupKubestellar(ctx context.Context, releasedFlag bool, otherFlags ...string) {
 	ginkgo.GinkgoHelper()
-	var e, o bytes.Buffer
 	var args []string
 	if releasedFlag {
 		args = []string{"--released"}
@@ -135,13 +128,9 @@ func SetupKubestellar(ctx context.Context, releasedFlag bool, otherFlags ...stri
 	commandName := "../common/setup-kubestellar.sh"
 	ginkgo.By(fmt.Sprintf("Execing command %#v", append([]string{commandName}, args...)))
 	cmd := exec.CommandContext(ctx, commandName, args...)
-	cmd.Stderr = &e
-	cmd.Stdout = &o
+	cmd.Stderr = ginkgo.GinkgoWriter
+	cmd.Stdout = ginkgo.GinkgoWriter
 	err := cmd.Run()
-	if err != nil {
-		fmt.Fprintf(ginkgo.GinkgoWriter, "%s", o.String())
-		fmt.Fprintf(ginkgo.GinkgoWriter, "%s", e.String())
-	}
 	gomega.Expect(err).To(gomega.Succeed())
 }
 
@@ -540,18 +529,29 @@ func GetDeployment(ctx context.Context, wec *kubernetes.Clientset, ns, name stri
 	return ans
 }
 
-func ValidateNumDeploymentReplicas(ctx context.Context, wec *kubernetes.Clientset, ns string, numReplicas int) {
+func ValidateDeploymentDeletion(ctx context.Context, wec *kubernetes.Clientset, ns, name string) {
 	ginkgo.GinkgoHelper()
-	gomega.Eventually(func() int {
-		deployments, err := wec.AppsV1().Deployments(ns).List(ctx, metav1.ListOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		if len(deployments.Items) != 1 {
-			return 0
+	gomega.Eventually(func() error {
+		_, err := wec.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			return nil
 		}
-		d := deployments.Items[0]
-		print()
-		return int(*d.Spec.Replicas)
-	}, timeout).Should(gomega.Equal(numReplicas))
+		return fmt.Errorf("Deployment %q in namespace %q still exists, or some error other than NotFound occurred", name, ns)
+	}, timeout).Should(gomega.Succeed())
+}
+
+func ValidateDeploymentReplicas(ctx context.Context, wec *kubernetes.Clientset, ns, name string, numReplicas int) {
+	ginkgo.GinkgoHelper()
+	gomega.Eventually(func() error {
+		d, err := wec.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("Failed to get Deployment %q in namespace %q: %w", name, ns, err)
+		}
+		if int(*d.Spec.Replicas) != numReplicas {
+			return fmt.Errorf("Deployment %q in namespace %q has %d replicas, expected %d", name, ns, *d.Spec.Replicas, numReplicas)
+		}
+		return nil
+	}, timeout).Should(gomega.Succeed())
 }
 
 func DeleteWECDeployments(ctx context.Context, wec *kubernetes.Clientset, ns string) {
